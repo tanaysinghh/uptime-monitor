@@ -1,14 +1,55 @@
 const axios = require("axios");
-const { Monitor, Check, Incident } = require("../models");
+const https = require("https");
+const tls = require("tls");
+const { URL } = require("url");
+const { Monitor, Check, Incident, Organization } = require("../models");
 const { Op } = require("sequelize");
+const { emitMonitorUpdate, emitIncidentUpdate, emitCheckResult } = require("./socketService");
 
 const FAILURE_THRESHOLD = 3;
+
+const checkSSLCertificate = (hostname) => {
+  return new Promise((resolve) => {
+    try {
+      const socket = tls.connect(443, hostname, { servername: hostname }, () => {
+        const cert = socket.getPeerCertificate();
+        socket.end();
+
+        if (!cert || !cert.valid_to) {
+          resolve(null);
+          return;
+        }
+
+        const expiryDate = new Date(cert.valid_to);
+        const now = new Date();
+        const daysUntilExpiry = Math.floor((expiryDate - now) / (1000 * 60 * 60 * 24));
+
+        resolve({
+          validFrom: cert.valid_from,
+          validTo: cert.valid_to,
+          daysUntilExpiry,
+          issuer: cert.issuer?.O || "Unknown",
+          isExpiringSoon: daysUntilExpiry <= 14,
+        });
+      });
+
+      socket.on("error", () => resolve(null));
+      socket.setTimeout(5000, () => {
+        socket.destroy();
+        resolve(null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+};
 
 const performCheck = async (monitor) => {
   const startTime = Date.now();
   let statusCode = null;
   let isSuccess = false;
   let errorMessage = null;
+  let sslInfo = null;
 
   try {
     const response = await axios({
@@ -39,6 +80,15 @@ const performCheck = async (monitor) => {
     }
   }
 
+  try {
+    const urlObj = new URL(monitor.url);
+    if (urlObj.protocol === "https:") {
+      sslInfo = await checkSSLCertificate(urlObj.hostname);
+    }
+  } catch {
+    sslInfo = null;
+  }
+
   const responseTimeMs = Date.now() - startTime;
 
   const check = await Check.create({
@@ -52,10 +102,22 @@ const performCheck = async (monitor) => {
 
   await handleStatusChange(monitor, isSuccess);
 
+  emitCheckResult(monitor.organizationId, {
+    monitorId: monitor.id,
+    statusCode,
+    responseTimeMs,
+    isSuccess,
+    errorMessage,
+    checkedAt: check.checkedAt,
+    sslInfo,
+  });
+
   return check;
 };
 
 const handleStatusChange = async (monitor, isSuccess) => {
+  const previousStatus = monitor.status;
+
   if (isSuccess) {
     if (monitor.status === "down") {
       const activeIncident = await Incident.findOne({
@@ -68,13 +130,18 @@ const handleStatusChange = async (monitor, isSuccess) => {
 
       if (activeIncident) {
         const now = new Date();
-        const duration = Math.floor(
-          (now - activeIncident.startedAt) / 1000
-        );
+        const duration = Math.floor((now - activeIncident.startedAt) / 1000);
         activeIncident.status = "resolved";
         activeIncident.resolvedAt = now;
         activeIncident.durationSeconds = duration;
         await activeIncident.save();
+
+        const org = await Organization.findByPk(monitor.organizationId);
+        emitIncidentUpdate(monitor.organizationId, org?.slug, {
+          type: "resolved",
+          incident: activeIncident,
+          monitorName: monitor.name,
+        });
       }
     }
 
@@ -90,15 +157,31 @@ const handleStatusChange = async (monitor, isSuccess) => {
       if (monitor.status !== "down") {
         monitor.status = "down";
 
-        await Incident.create({
+        const incident = await Incident.create({
           monitorId: monitor.id,
           status: "investigating",
           startedAt: new Date(),
+        });
+
+        const org = await Organization.findByPk(monitor.organizationId);
+        emitIncidentUpdate(monitor.organizationId, org?.slug, {
+          type: "new",
+          incident,
+          monitorName: monitor.name,
         });
       }
     }
 
     await monitor.save();
+  }
+
+  if (previousStatus !== monitor.status) {
+    emitMonitorUpdate(monitor.organizationId, {
+      monitorId: monitor.id,
+      name: monitor.name,
+      previousStatus,
+      currentStatus: monitor.status,
+    });
   }
 };
 
@@ -127,4 +210,4 @@ const checkAllMonitors = async () => {
   }
 };
 
-module.exports = { performCheck, checkAllMonitors };
+module.exports = { performCheck, checkAllMonitors, checkSSLCertificate };
