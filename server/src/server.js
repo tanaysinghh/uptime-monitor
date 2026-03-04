@@ -2,9 +2,12 @@ const http = require("http");
 const app = require("./app");
 const { sequelize } = require("./models");
 const { startScheduler } = require("./services/scheduler");
+const { initSocket } = require("./services/socketService");
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
+
+initSocket(server);
 
 const start = async () => {
   try {
