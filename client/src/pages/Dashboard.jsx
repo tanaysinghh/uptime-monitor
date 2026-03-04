@@ -1,14 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import useSocket from "../hooks/useSocket";
 import {
   Activity,
   ArrowUp,
   ArrowDown,
-  Pause,
   AlertTriangle,
   Clock,
   CheckCircle,
+  Link as LinkIcon,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const StatCard = ({ label, value, icon: Icon, color }) => (
   <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -27,6 +30,7 @@ const StatCard = ({ label, value, icon: Icon, color }) => (
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   const fetchStats = async () => {
     try {
@@ -45,6 +49,28 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const socketHandlers = useMemo(
+    () => ({
+      "monitor:update": (data) => {
+        toast(`${data.name}: ${data.previousStatus} -> ${data.currentStatus}`, {
+          icon: data.currentStatus === "up" ? "✅" : "🔴",
+        });
+        fetchStats();
+      },
+      "incident:update": (data) => {
+        if (data.type === "new") {
+          toast.error(`New incident: ${data.monitorName} is down`);
+        } else {
+          toast.success(`Resolved: ${data.monitorName} is back up`);
+        }
+        fetchStats();
+      },
+    }),
+    []
+  );
+
+  useSocket("join:dashboard", user?.organizationId, socketHandlers);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -55,11 +81,29 @@ const Dashboard = () => {
 
   if (!stats) return null;
 
+  const statusPageUrl =
+    user?.organization?.slug
+      ? window.location.origin + "/status/" + user.organization.slug
+      : null;
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-gray-400 mt-1">Overview of all your monitors</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-gray-400 mt-1">Overview of all your monitors</p>
+        </div>
+        {statusPageUrl && (
+          <a
+            href={statusPageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 rounded-lg transition-colors"
+          >
+            <LinkIcon className="w-4 h-4" />
+            Public Status Page
+          </a>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -83,7 +127,7 @@ const Dashboard = () => {
         />
         <StatCard
           label="Uptime (24h)"
-          value={`${stats.uptimePercentage}%`}
+          value={stats.uptimePercentage + "%"}
           icon={CheckCircle}
           color="bg-emerald-500/10 text-emerald-400"
         />
@@ -119,8 +163,12 @@ const Dashboard = () => {
                 className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 flex items-center justify-between"
               >
                 <div>
-                  <p className="font-medium">{incident.Monitor?.name}</p>
-                  <p className="text-sm text-gray-400">{incident.Monitor?.url}</p>
+                  <p className="font-medium">
+                    {incident.Monitor?.name}
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    {incident.Monitor?.url}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-red-400">
                   <Clock className="w-4 h-4" />
