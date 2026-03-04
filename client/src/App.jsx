@@ -1,0 +1,60 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Monitors from "./pages/Monitors";
+import MonitorDetail from "./pages/MonitorDetail";
+
+const App = () => {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: "#1f2937",
+              color: "#f3f4f6",
+              border: "1px solid #374151",
+            },
+          }}
+        />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout><Dashboard /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/monitors"
+            element={
+              <ProtectedRoute>
+                <Layout><Monitors /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/monitors/:id"
+            element={
+              <ProtectedRoute>
+                <Layout><MonitorDetail /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};
+
+export default App;
