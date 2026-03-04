@@ -1,5 +1,6 @@
 const cron = require("node-cron");
 const { checkAllMonitors } = require("./healthCheckService");
+const { startCleanup } = require("./dataCleanup");
 
 let schedulerTask = null;
 
@@ -13,6 +14,8 @@ const startScheduler = () => {
       console.error("Scheduler error:", error.message);
     }
   });
+
+  startCleanup();
 };
 
 const stopScheduler = () => {
