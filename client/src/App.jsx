@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Monitors from "./pages/Monitors";
 import MonitorDetail from "./pages/MonitorDetail";
 import StatusPage from "./pages/StatusPage";
+import Landing from "./pages/Landing";
 
 const App = () => {
   return (
@@ -25,6 +26,7 @@ const App = () => {
           }}
         />
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/status/:slug" element={<StatusPage />} />
@@ -52,7 +54,7 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
