@@ -7,6 +7,7 @@ require("dotenv").config();
 const authRoutes = require("./routes/authRoutes");
 const monitorRoutes = require("./routes/monitorRoutes");
 const statsRoutes = require("./routes/statsRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/monitors", monitorRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/public", publicRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
