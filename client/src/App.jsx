@@ -8,6 +8,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Monitors from "./pages/Monitors";
 import MonitorDetail from "./pages/MonitorDetail";
+import StatusPage from "./pages/StatusPage";
 
 const App = () => {
   return (
@@ -26,6 +27,7 @@ const App = () => {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/status/:slug" element={<StatusPage />} />
           <Route
             path="/dashboard"
             element={
