@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Activity } from "lucide-react";
+import { GetStartedButton } from "../components/ui/GetStartedButton";
 import toast from "react-hot-toast";
 
 const Login = () => {
@@ -29,9 +30,9 @@ const Login = () => {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
+          <Link to="/" className="inline-flex items-center justify-center gap-2 mb-4">
             <Activity className="w-10 h-10 text-emerald-500" />
-          </div>
+          </Link>
           <h1 className="text-3xl font-bold text-white">Welcome back</h1>
           <p className="text-gray-400 mt-2">Sign in to your account</p>
         </div>
@@ -63,13 +64,11 @@ const Login = () => {
                 placeholder="••••••••"
               />
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-            >
-              {loading ? "Signing in..." : "Sign in"}
-            </button>
+            <div className="flex justify-center">
+              <GetStartedButton onClick={handleSubmit} className="w-full justify-center">
+                {loading ? "Signing in..." : "Sign in"}
+              </GetStartedButton>
+            </div>
           </form>
           <p className="text-center text-gray-400 text-sm mt-6">
             Don't have an account?{" "}

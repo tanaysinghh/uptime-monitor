@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
+import { GetStartedButton } from "../components/ui/GetStartedButton";
 import toast from "react-hot-toast";
 import {
   Plus,
@@ -9,7 +10,6 @@ import {
   Pause,
   Clock,
   Trash2,
-  ExternalLink,
 } from "lucide-react";
 
 const statusConfig = {
@@ -70,7 +70,7 @@ const Monitors = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this monitor?")) return;
     try {
-      await api.delete(`/monitors/${id}`);
+      await api.delete("/monitors/" + id);
       toast.success("Monitor deleted");
       fetchMonitors();
     } catch (error) {
@@ -81,7 +81,7 @@ const Monitors = () => {
   const togglePause = async (monitor) => {
     try {
       const newStatus = monitor.status === "paused" ? "pending" : "paused";
-      await api.put(`/monitors/${monitor.id}`, { status: newStatus });
+      await api.put("/monitors/" + monitor.id, { status: newStatus });
       toast.success(newStatus === "paused" ? "Monitor paused" : "Monitor resumed");
       fetchMonitors();
     } catch (error) {
@@ -104,13 +104,9 @@ const Monitors = () => {
           <h1 className="text-2xl font-bold">Monitors</h1>
           <p className="text-gray-400 mt-1">{monitors.length} monitors configured</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
-        >
-          <Plus className="w-4 h-4" />
+        <GetStartedButton onClick={() => setShowForm(!showForm)}>
           Add Monitor
-        </button>
+        </GetStartedButton>
       </div>
 
       {showForm && (
@@ -184,19 +180,15 @@ const Monitors = () => {
               />
             </div>
             <div className="md:col-span-2 flex gap-3">
-              <button
-                type="submit"
-                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
-              >
+              <GetStartedButton onClick={handleCreate}>
                 Create Monitor
-              </button>
-              <button
-                type="button"
+              </GetStartedButton>
+              <GetStartedButton
                 onClick={() => setShowForm(false)}
-                className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                className="bg-gray-800 hover:bg-gray-800 border border-gray-700"
               >
                 Cancel
-              </button>
+              </GetStartedButton>
             </div>
           </form>
         </div>
@@ -212,12 +204,12 @@ const Monitors = () => {
               className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center justify-between hover:border-gray-700 transition-colors"
             >
               <div className="flex items-center gap-4">
-                <div className={`p-2 rounded-lg ${config.bg}`}>
-                  <StatusIcon className={`w-5 h-5 ${config.color}`} />
+                <div className={"p-2 rounded-lg " + config.bg}>
+                  <StatusIcon className={"w-5 h-5 " + config.color} />
                 </div>
                 <div>
                   <Link
-                    to={`/monitors/${monitor.id}`}
+                    to={"/monitors/" + monitor.id}
                     className="font-medium hover:text-emerald-400 transition-colors"
                   >
                     {monitor.name}
@@ -227,14 +219,14 @@ const Monitors = () => {
                     <span className="text-xs text-gray-600">{monitor.method}</span>
                     <span className="text-xs text-gray-600">
                       every {monitor.intervalSeconds < 60
-                        ? `${monitor.intervalSeconds}s`
-                        : `${monitor.intervalSeconds / 60}m`}
+                        ? monitor.intervalSeconds + "s"
+                        : monitor.intervalSeconds / 60 + "m"}
                     </span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-sm font-medium ${config.color}`}>
+                <span className={"text-sm font-medium " + config.color}>
                   {config.label}
                 </span>
                 <button

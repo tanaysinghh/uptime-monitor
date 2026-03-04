@@ -3,12 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import {
   ArrowLeft,
-  ArrowUp,
-  ArrowDown,
-  Clock,
   CheckCircle,
   XCircle,
-  Activity,
 } from "lucide-react";
 import {
   LineChart,
@@ -33,10 +29,10 @@ const MonitorDetail = () => {
   const fetchData = async () => {
     try {
       const [monitorRes, checksRes, statsRes, incidentsRes] = await Promise.all([
-        api.get(`/monitors/${id}`),
-        api.get(`/monitors/${id}/checks?period=${period}`),
-        api.get(`/stats/monitors/${id}?period=${period}`),
-        api.get(`/monitors/${id}/incidents`),
+        api.get("/monitors/" + id),
+        api.get("/monitors/" + id + "/checks?period=" + period),
+        api.get("/stats/monitors/" + id + "?period=" + period),
+        api.get("/monitors/" + id + "/incidents"),
       ]);
 
       setMonitor(monitorRes.data.monitor);
@@ -72,7 +68,12 @@ const MonitorDetail = () => {
     success: check.isSuccess ? 1 : 0,
   }));
 
-  const statusColor = monitor.status === "up" ? "text-emerald-400" : monitor.status === "down" ? "text-red-400" : "text-yellow-400";
+  const statusColor =
+    monitor.status === "up"
+      ? "text-emerald-400"
+      : monitor.status === "down"
+      ? "text-red-400"
+      : "text-yellow-400";
 
   return (
     <div className="space-y-6">
@@ -87,7 +88,7 @@ const MonitorDetail = () => {
           <h1 className="text-2xl font-bold">{monitor.name}</h1>
           <p className="text-gray-400">{monitor.url}</p>
         </div>
-        <span className={`ml-auto text-lg font-semibold ${statusColor} uppercase`}>
+        <span className={"ml-auto text-lg font-semibold uppercase " + statusColor}>
           {monitor.status}
         </span>
       </div>
@@ -121,11 +122,12 @@ const MonitorDetail = () => {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                  period === p
+                className={
+                  "px-3 py-1 text-sm rounded-lg transition-colors " +
+                  (period === p
                     ? "bg-emerald-600 text-white"
-                    : "bg-gray-800 text-gray-400 hover:text-white"
-                }`}
+                    : "bg-gray-800 text-gray-400 hover:text-white")
+                }
               >
                 {p}
               </button>
@@ -190,7 +192,7 @@ const MonitorDetail = () => {
                 </div>
                 <div className="text-sm text-gray-400">
                   {incident.durationSeconds
-                    ? `${Math.floor(incident.durationSeconds / 60)}m ${incident.durationSeconds % 60}s`
+                    ? Math.floor(incident.durationSeconds / 60) + "m " + (incident.durationSeconds % 60) + "s"
                     : "Ongoing"}
                 </div>
               </div>
