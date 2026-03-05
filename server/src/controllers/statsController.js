@@ -2,6 +2,12 @@ const { Monitor, Check, Incident } = require("../models");
 const { Op } = require("sequelize");
 const sequelize = require("../config/database");
 
+const calculatePercentile = (sortedValues, percentile) => {
+  if (sortedValues.length === 0) return 0;
+  const index = Math.ceil((percentile / 100) * sortedValues.length) - 1;
+  return sortedValues[Math.max(0, index)];
+};
+
 const getDashboardStats = async (req, res) => {
   try {
     const orgId = req.user.organizationId;
@@ -14,6 +20,7 @@ const getDashboardStats = async (req, res) => {
     const monitorsUp = monitors.filter((m) => m.status === "up").length;
     const monitorsDown = monitors.filter((m) => m.status === "down").length;
     const monitorsPaused = monitors.filter((m) => m.status === "paused").length;
+    const monitorsInMaintenance = monitors.filter((m) => m.maintenanceMode).length;
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const monitorIds = monitors.map((m) => m.id);
@@ -40,6 +47,21 @@ const getDashboardStats = async (req, res) => {
       raw: true,
     });
 
+    const responseTimes = await Check.findAll({
+      where: {
+        monitorId: { [Op.in]: monitorIds },
+        checkedAt: { [Op.gte]: twentyFourHoursAgo },
+        responseTimeMs: { [Op.ne]: null },
+      },
+      attributes: ["responseTimeMs"],
+      order: [["responseTimeMs", "ASC"]],
+      raw: true,
+    });
+
+    const sortedTimes = responseTimes.map((r) => r.responseTimeMs);
+    const p95 = calculatePercentile(sortedTimes, 95);
+    const p99 = calculatePercentile(sortedTimes, 99);
+
     const activeIncidents = await Incident.findAll({
       where: {
         monitorId: { [Op.in]: monitorIds },
@@ -62,9 +84,12 @@ const getDashboardStats = async (req, res) => {
       monitorsUp,
       monitorsDown,
       monitorsPaused,
+      monitorsInMaintenance,
       totalChecks,
       uptimePercentage: parseFloat(uptimePercentage),
       avgResponseTime: Math.round(parseFloat(stats.avgResponseTime) || 0),
+      p95ResponseTime: p95,
+      p99ResponseTime: p99,
       activeIncidents,
     });
   } catch (error) {
@@ -125,6 +150,21 @@ const getMonitorStats = async (req, res) => {
       raw: true,
     });
 
+    const responseTimes = await Check.findAll({
+      where: {
+        monitorId: monitor.id,
+        checkedAt: { [Op.gte]: since },
+        responseTimeMs: { [Op.ne]: null },
+      },
+      attributes: ["responseTimeMs"],
+      order: [["responseTimeMs", "ASC"]],
+      raw: true,
+    });
+
+    const sortedTimes = responseTimes.map((r) => r.responseTimeMs);
+    const p95 = calculatePercentile(sortedTimes, 95);
+    const p99 = calculatePercentile(sortedTimes, 99);
+
     const stats = checks[0] || {};
     const totalChecks = parseInt(stats.totalChecks) || 0;
     const successfulChecks = parseInt(stats.successfulChecks) || 0;
@@ -149,6 +189,8 @@ const getMonitorStats = async (req, res) => {
       avgResponseTime: Math.round(parseFloat(stats.avgResponseTime) || 0),
       maxResponseTime: parseInt(stats.maxResponseTime) || 0,
       minResponseTime: parseInt(stats.minResponseTime) || 0,
+      p95ResponseTime: p95,
+      p99ResponseTime: p99,
       totalIncidents: incidents.length,
       incidents,
     });
