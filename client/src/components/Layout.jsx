@@ -5,6 +5,9 @@ import {
   Monitor,
   LogOut,
   Activity,
+  Bell,
+  Users,
+  Settings,
 } from "lucide-react";
 
 const Layout = ({ children }) => {
@@ -20,6 +23,9 @@ const Layout = ({ children }) => {
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/monitors", label: "Monitors", icon: Monitor },
+    { path: "/alerts", label: "Alerts", icon: Bell },
+    { path: "/team", label: "Team", icon: Users },
+    { path: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (
@@ -40,11 +46,12 @@ const Layout = ({ children }) => {
                     <Link
                       key={item.path}
                       to={item.path}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                        isActive
+                      className={
+                        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors " +
+                        (isActive
                           ? "bg-gray-800 text-emerald-400"
-                          : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
-                      }`}
+                          : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50")
+                      }
                     >
                       <Icon className="w-4 h-4" />
                       {item.label}
