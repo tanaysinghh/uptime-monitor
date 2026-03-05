@@ -8,6 +8,12 @@ const authRoutes = require("./routes/authRoutes");
 const monitorRoutes = require("./routes/monitorRoutes");
 const statsRoutes = require("./routes/statsRoutes");
 const publicRoutes = require("./routes/publicRoutes");
+const alertRoutes = require("./routes/alertRoutes");
+const teamRoutes = require("./routes/teamRoutes");
+const apiKeyRoutes = require("./routes/apiKeyRoutes");
+const heartbeatRoutes = require("./routes/heartbeatRoutes");
+const maintenanceRoutes = require("./routes/maintenanceRoutes");
+const subscriberRoutes = require("./routes/subscriberRoutes");
 
 const app = express();
 
@@ -24,6 +30,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/monitors", monitorRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/public", publicRoutes);
+app.use("/api/alerts", alertRoutes);
+app.use("/api/team", teamRoutes);
+app.use("/api/api-keys", apiKeyRoutes);
+app.use("/api/heartbeat", heartbeatRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
+app.use("/api/public", subscriberRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
