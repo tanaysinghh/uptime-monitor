@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import useSocket from "../hooks/useSocket";
+import AnimatedTextCycle from "../components/ui/AnimatedTextCycle";
 import {
   Activity,
   ArrowUp,
@@ -10,6 +11,7 @@ import {
   Clock,
   CheckCircle,
   Link as LinkIcon,
+  Wrench,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -20,7 +22,7 @@ const StatCard = ({ label, value, icon: Icon, color }) => (
         <p className="text-sm text-gray-400">{label}</p>
         <p className="text-2xl font-bold mt-1">{value}</p>
       </div>
-      <div className={`p-3 rounded-lg ${color}`}>
+      <div className={"p-3 rounded-lg " + color}>
         <Icon className="w-5 h-5" />
       </div>
     </div>
@@ -52,16 +54,16 @@ const Dashboard = () => {
   const socketHandlers = useMemo(
     () => ({
       "monitor:update": (data) => {
-        toast(`${data.name}: ${data.previousStatus} -> ${data.currentStatus}`, {
+        toast(data.name + ": " + data.previousStatus + " -> " + data.currentStatus, {
           icon: data.currentStatus === "up" ? "✅" : "🔴",
         });
         fetchStats();
       },
       "incident:update": (data) => {
         if (data.type === "new") {
-          toast.error(`New incident: ${data.monitorName} is down`);
+          toast.error("New incident: " + data.monitorName + " is down");
         } else {
-          toast.success(`Resolved: ${data.monitorName} is back up`);
+          toast.success("Resolved: " + data.monitorName + " is back up");
         }
         fetchStats();
       },
@@ -90,7 +92,14 @@ const Dashboard = () => {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
+            <span>Monitor your</span>
+            <AnimatedTextCycle
+              words={["APIs", "endpoints", "services", "websites", "uptime", "latency", "health"]}
+              interval={3000}
+              className="text-emerald-400"
+            />
+          </h1>
           <p className="text-gray-400 mt-1">Overview of all your monitors</p>
         </div>
         {statusPageUrl && (
@@ -133,22 +142,33 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-1">Avg Response Time</h2>
-          <p className="text-3xl font-bold text-emerald-400">
-            {stats.avgResponseTime}ms
-          </p>
-          <p className="text-sm text-gray-400 mt-1">Last 24 hours</p>
+          <h2 className="text-sm text-gray-400 mb-1">Avg Response</h2>
+          <p className="text-2xl font-bold text-emerald-400">{stats.avgResponseTime}ms</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-1">Total Checks</h2>
-          <p className="text-3xl font-bold text-blue-400">
-            {stats.totalChecks}
-          </p>
-          <p className="text-sm text-gray-400 mt-1">Last 24 hours</p>
+          <h2 className="text-sm text-gray-400 mb-1">p95 Latency</h2>
+          <p className="text-2xl font-bold text-yellow-400">{stats.p95ResponseTime || 0}ms</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-sm text-gray-400 mb-1">p99 Latency</h2>
+          <p className="text-2xl font-bold text-orange-400">{stats.p99ResponseTime || 0}ms</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-sm text-gray-400 mb-1">Total Checks (24h)</h2>
+          <p className="text-2xl font-bold text-blue-400">{stats.totalChecks}</p>
         </div>
       </div>
+
+      {stats.monitorsInMaintenance > 0 && (
+        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4 flex items-center gap-3">
+          <Wrench className="w-5 h-5 text-yellow-400" />
+          <p className="text-sm text-yellow-400">
+            {stats.monitorsInMaintenance} monitor{stats.monitorsInMaintenance > 1 ? "s" : ""} in maintenance mode
+          </p>
+        </div>
+      )}
 
       {stats.activeIncidents.length > 0 && (
         <div>
@@ -163,12 +183,8 @@ const Dashboard = () => {
                 className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 flex items-center justify-between"
               >
                 <div>
-                  <p className="font-medium">
-                    {incident.Monitor?.name}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    {incident.Monitor?.url}
-                  </p>
+                  <p className="font-medium">{incident.Monitor?.name}</p>
+                  <p className="text-sm text-gray-400">{incident.Monitor?.url}</p>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-red-400">
                   <Clock className="w-4 h-4" />
