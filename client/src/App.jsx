@@ -10,6 +10,9 @@ import Monitors from "./pages/Monitors";
 import MonitorDetail from "./pages/MonitorDetail";
 import StatusPage from "./pages/StatusPage";
 import Landing from "./pages/Landing";
+import Alerts from "./pages/Alerts";
+import Team from "./pages/Team";
+import Settings from "./pages/Settings";
 
 const App = () => {
   return (
@@ -51,6 +54,30 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <Layout><MonitorDetail /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/alerts"
+            element={
+              <ProtectedRoute>
+                <Layout><Alerts /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/team"
+            element={
+              <ProtectedRoute>
+                <Layout><Team /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Layout><Settings /></Layout>
               </ProtectedRoute>
             }
           />
