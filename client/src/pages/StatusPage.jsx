@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import toast from "react-hot-toast";
 import {
   CheckCircle,
   XCircle,
   AlertTriangle,
   Clock,
   Activity,
+  Mail,
+  Wrench,
 } from "lucide-react";
 
 const statusLabels = {
@@ -41,14 +44,12 @@ const UptimeBar = ({ uptimeDays, overallUptime }) => {
       <div className="flex gap-[2px]">
         {last90Days.map((day, i) => (
           <div key={i} className="group relative flex-1">
-            <div
-              className={`h-8 rounded-[2px] ${getBarColor(day.uptime)} transition-opacity hover:opacity-80`}
-            />
+            <div className={"h-8 rounded-[2px] transition-opacity hover:opacity-80 " + getBarColor(day.uptime)} />
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
               <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg">
                 <p className="font-medium">{day.date}</p>
                 <p className="text-gray-400">
-                  {day.uptime === -1 ? "No data" : `${day.uptime}% uptime`}
+                  {day.uptime === -1 ? "No data" : day.uptime + "% uptime"}
                 </p>
               </div>
             </div>
@@ -69,11 +70,13 @@ const StatusPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [subEmail, setSubEmail] = useState("");
+  const [subLoading, setSubLoading] = useState(false);
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await axios.get(`/api/public/status/${slug}`);
+        const response = await axios.get("/api/public/status/" + slug);
         setData(response.data);
       } catch (err) {
         setError(err.response?.status === 404 ? "Status page not found" : "Failed to load status");
@@ -86,6 +89,20 @@ const StatusPage = () => {
     const interval = setInterval(fetchStatus, 60000);
     return () => clearInterval(interval);
   }, [slug]);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    setSubLoading(true);
+    try {
+      await axios.post("/api/public/status/" + slug + "/subscribe", { email: subEmail });
+      toast.success("Subscribed! You'll receive incident notifications.");
+      setSubEmail("");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to subscribe");
+    } finally {
+      setSubLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -114,11 +131,7 @@ const StatusPage = () => {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-10">
           {data.organization.logoUrl ? (
-            <img
-              src={data.organization.logoUrl}
-              alt={data.organization.name}
-              className="h-10 mx-auto mb-4"
-            />
+            <img src={data.organization.logoUrl} alt={data.organization.name} className="h-10 mx-auto mb-4" />
           ) : (
             <div className="flex items-center justify-center gap-2 mb-4">
               <Activity className="w-8 h-8" style={{ color: data.organization.brandColor }} />
@@ -127,15 +140,11 @@ const StatusPage = () => {
           )}
         </div>
 
-        <div className={`${statusConfig.bg} border ${statusConfig.border} rounded-xl p-6 mb-8 flex items-center gap-4`}>
-          <StatusIcon className={`w-8 h-8 ${statusConfig.color}`} />
+        <div className={"rounded-xl p-6 mb-8 flex items-center gap-4 " + statusConfig.bg + " border " + statusConfig.border}>
+          <StatusIcon className={"w-8 h-8 " + statusConfig.color} />
           <div>
-            <p className={`text-xl font-semibold ${statusConfig.color}`}>
-              {statusConfig.label}
-            </p>
-            <p className="text-sm text-gray-400 mt-1">
-              Last updated: {new Date().toLocaleString()}
-            </p>
+            <p className={"text-xl font-semibold " + statusConfig.color}>{statusConfig.label}</p>
+            <p className="text-sm text-gray-400 mt-1">Last updated: {new Date().toLocaleString()}</p>
           </div>
         </div>
 
@@ -147,15 +156,10 @@ const StatusPage = () => {
             </h2>
             <div className="space-y-3">
               {data.activeIncidents.map((incident) => (
-                <div
-                  key={incident.id}
-                  className="bg-red-500/5 border border-red-500/20 rounded-xl p-4"
-                >
+                <div key={incident.id} className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <p className="font-medium">{incident.Monitor?.name}</p>
-                    <span className="text-xs text-red-400 capitalize px-2 py-1 bg-red-500/10 rounded-full">
-                      {incident.status}
-                    </span>
+                    <span className="text-xs text-red-400 capitalize px-2 py-1 bg-red-500/10 rounded-full">{incident.status}</span>
                   </div>
                   <p className="text-sm text-gray-400 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -169,37 +173,23 @@ const StatusPage = () => {
 
         <div className="space-y-6">
           {data.monitors.map((monitor) => (
-            <div
-              key={monitor.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-6"
-            >
+            <div key={monitor.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{monitor.name}</span>
                 </div>
-                <span
-                  className={`text-sm font-medium ${
-                    monitor.status === "up"
-                      ? "text-emerald-400"
-                      : monitor.status === "down"
-                      ? "text-red-400"
-                      : "text-gray-400"
-                  }`}
-                >
+                <span className={
+                  "text-sm font-medium " +
+                  (monitor.status === "up" ? "text-emerald-400" : monitor.status === "down" ? "text-red-400" : "text-gray-400")
+                }>
                   {monitor.status === "up" ? "Operational" : monitor.status === "down" ? "Down" : "Pending"}
                 </span>
               </div>
-              <UptimeBar
-                uptimeDays={monitor.uptimeDays}
-                overallUptime={monitor.overallUptime}
-              />
+              <UptimeBar uptimeDays={monitor.uptimeDays} overallUptime={monitor.overallUptime} />
             </div>
           ))}
-
           {data.monitors.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              No monitors configured
-            </div>
+            <div className="text-center py-12 text-gray-500">No monitors configured</div>
           )}
         </div>
 
@@ -208,16 +198,13 @@ const StatusPage = () => {
             <h2 className="text-lg font-semibold mb-4">Past Incidents</h2>
             <div className="space-y-3">
               {data.recentIncidents.map((incident) => (
-                <div
-                  key={incident.id}
-                  className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between"
-                >
+                <div key={incident.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">{incident.Monitor?.name}</p>
                     <p className="text-xs text-gray-500">
                       {new Date(incident.startedAt).toLocaleDateString()} — resolved in{" "}
                       {incident.durationSeconds
-                        ? `${Math.floor(incident.durationSeconds / 60)}m ${incident.durationSeconds % 60}s`
+                        ? Math.floor(incident.durationSeconds / 60) + "m " + (incident.durationSeconds % 60) + "s"
                         : "N/A"}
                     </p>
                   </div>
@@ -228,9 +215,33 @@ const StatusPage = () => {
           </div>
         )}
 
+        <div className="mt-10 bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Mail className="w-5 h-5 text-emerald-400" />
+            <h3 className="font-semibold">Subscribe to updates</h3>
+          </div>
+          <p className="text-sm text-gray-400 mb-4">Get notified when services go down or recover.</p>
+          <form onSubmit={handleSubscribe} className="flex gap-3">
+            <input
+              type="email"
+              value={subEmail}
+              onChange={(e) => setSubEmail(e.target.value)}
+              required
+              placeholder="you@example.com"
+              className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              type="submit"
+              disabled={subLoading}
+              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white rounded-lg transition-colors"
+            >
+              {subLoading ? "..." : "Subscribe"}
+            </button>
+          </form>
+        </div>
+
         <div className="text-center mt-12 text-sm text-gray-600">
-          Powered by{" "}
-          <span className="text-gray-400 font-medium">UptimeMonitor</span>
+          Powered by <span className="text-gray-400 font-medium">UptimeMonitor</span>
         </div>
       </div>
     </div>
