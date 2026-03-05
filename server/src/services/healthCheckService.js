@@ -1,10 +1,10 @@
 const axios = require("axios");
-const https = require("https");
 const tls = require("tls");
 const { URL } = require("url");
 const { Monitor, Check, Incident, Organization } = require("../models");
 const { Op } = require("sequelize");
 const { emitMonitorUpdate, emitIncidentUpdate, emitCheckResult } = require("./socketService");
+const { evaluateAssertions } = require("../utils/assertions");
 
 const FAILURE_THRESHOLD = 3;
 
@@ -45,11 +45,26 @@ const checkSSLCertificate = (hostname) => {
 };
 
 const performCheck = async (monitor) => {
+  if (monitor.maintenanceMode) {
+    const now = new Date();
+    if (monitor.maintenanceEndAt && now > new Date(monitor.maintenanceEndAt)) {
+      monitor.maintenanceMode = false;
+      monitor.maintenanceStartAt = null;
+      monitor.maintenanceEndAt = null;
+      monitor.maintenanceReason = null;
+      await monitor.save();
+    } else {
+      return null;
+    }
+  }
+
   const startTime = Date.now();
   let statusCode = null;
   let isSuccess = false;
   let errorMessage = null;
   let sslInfo = null;
+  let responseBody = null;
+  let assertionResults = null;
 
   try {
     const response = await axios({
@@ -59,22 +74,40 @@ const performCheck = async (monitor) => {
       data: monitor.body || undefined,
       timeout: monitor.timeoutMs,
       validateStatus: () => true,
+      transformResponse: [(data) => data],
     });
 
     statusCode = response.status;
+    responseBody = response.data;
     isSuccess = statusCode === monitor.expectedStatus;
 
     if (!isSuccess) {
-      errorMessage = `Expected status ${monitor.expectedStatus}, got ${statusCode}`;
+      errorMessage = "Expected status " + monitor.expectedStatus + ", got " + statusCode;
+    }
+
+    if (monitor.assertions && monitor.assertions.length > 0) {
+      const assertionCheck = evaluateAssertions(monitor.assertions, responseBody, statusCode);
+      assertionResults = assertionCheck.results;
+
+      if (!assertionCheck.passed) {
+        isSuccess = false;
+        const failedAssertions = assertionCheck.results
+          .filter((r) => !r.passed)
+          .map((r) => r.type + ": expected " + (r.value || "") + ", got " + (r.actual || ""))
+          .join("; ");
+        errorMessage = errorMessage
+          ? errorMessage + " | Assertions failed: " + failedAssertions
+          : "Assertions failed: " + failedAssertions;
+      }
     }
   } catch (error) {
     isSuccess = false;
     if (error.code === "ECONNABORTED") {
-      errorMessage = `Timeout after ${monitor.timeoutMs}ms`;
+      errorMessage = "Timeout after " + monitor.timeoutMs + "ms";
     } else if (error.code === "ENOTFOUND") {
-      errorMessage = `DNS lookup failed for ${monitor.url}`;
+      errorMessage = "DNS lookup failed for " + monitor.url;
     } else if (error.code === "ECONNREFUSED") {
-      errorMessage = `Connection refused by ${monitor.url}`;
+      errorMessage = "Connection refused by " + monitor.url;
     } else {
       errorMessage = error.message;
     }
@@ -90,6 +123,25 @@ const performCheck = async (monitor) => {
   }
 
   const responseTimeMs = Date.now() - startTime;
+
+  if (monitor.assertions && monitor.assertions.length > 0) {
+    const rtAssertions = monitor.assertions.filter((a) => a.type === "response_time");
+    for (const rta of rtAssertions) {
+      const passed = responseTimeMs <= parseInt(rta.value);
+      if (!passed) {
+        isSuccess = false;
+        const rtMsg = "Response time " + responseTimeMs + "ms exceeds " + rta.value + "ms";
+        errorMessage = errorMessage ? errorMessage + " | " + rtMsg : rtMsg;
+      }
+      if (assertionResults) {
+        const idx = assertionResults.findIndex((r) => r.type === "response_time" && r.value === rta.value);
+        if (idx !== -1) {
+          assertionResults[idx].passed = passed;
+          assertionResults[idx].actual = responseTimeMs + "ms";
+        }
+      }
+    }
+  }
 
   const check = await Check.create({
     monitorId: monitor.id,
@@ -110,6 +162,7 @@ const performCheck = async (monitor) => {
     errorMessage,
     checkedAt: check.checkedAt,
     sslInfo,
+    assertionResults,
   });
 
   return check;
@@ -189,6 +242,7 @@ const checkAllMonitors = async () => {
   const monitors = await Monitor.findAll({
     where: {
       status: { [Op.ne]: "paused" },
+      monitorType: "http",
     },
   });
 
@@ -204,7 +258,7 @@ const checkAllMonitors = async () => {
       try {
         await performCheck(monitor);
       } catch (error) {
-        console.error(`Error checking monitor ${monitor.id}:`, error.message);
+        console.error("Error checking monitor " + monitor.id + ":", error.message);
       }
     }
   }
