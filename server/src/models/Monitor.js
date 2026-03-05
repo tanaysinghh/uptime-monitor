@@ -61,6 +61,43 @@ const Monitor = sequelize.define(
       type: DataTypes.UUID,
       allowNull: false,
     },
+    assertions: {
+      type: DataTypes.JSONB,
+      defaultValue: [],
+    },
+    monitorType: {
+      type: DataTypes.ENUM("http", "heartbeat"),
+      defaultValue: "http",
+    },
+    heartbeatInterval: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    heartbeatToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
+    lastHeartbeatAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    maintenanceMode: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    maintenanceStartAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    maintenanceEndAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    maintenanceReason: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   },
   { timestamps: true }
 );

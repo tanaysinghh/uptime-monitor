@@ -25,12 +25,16 @@ const User = sequelize.define(
       allowNull: false,
     },
     role: {
-      type: DataTypes.ENUM("admin", "viewer"),
+      type: DataTypes.ENUM("admin", "editor", "viewer"),
       defaultValue: "admin",
     },
     isVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+    },
+    organizationId: {
+      type: DataTypes.UUID,
+      allowNull: true,
     },
   },
   {
