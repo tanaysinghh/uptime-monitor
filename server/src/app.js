@@ -18,6 +18,7 @@ const apiKeyRoutes = require("./routes/apiKeyRoutes");
 const heartbeatRoutes = require("./routes/heartbeatRoutes");
 const maintenanceRoutes = require("./routes/maintenanceRoutes");
 const subscriberRoutes = require("./routes/subscriberRoutes");
+const securityRoutes = require("./routes/securityRoutes");
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
@@ -74,6 +75,7 @@ app.use("/api/api-keys", apiKeyRoutes);
 app.use("/api/heartbeat", heartbeatRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/public", subscriberRoutes);
+app.use("/api/security", securityRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });

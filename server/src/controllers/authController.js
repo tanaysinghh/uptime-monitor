@@ -3,6 +3,7 @@ const { generateAccessToken, generateRefreshToken } = require("../utils/tokens")
 const jwt = require("jsonwebtoken");
 const { handleError } = require("../utils/errorResponse");
 const { evaluatePassword } = require("../utils/passwordPolicy");
+const securityEvents = require("../utils/securityEvents");
 const logger = require("../utils/logger");
 
 const register = async (req, res) => {
@@ -87,15 +88,27 @@ const login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
-      if (user.failedLoginAttempts >= LOCKOUT_THRESHOLD) {
+      const justLocked = user.failedLoginAttempts >= LOCKOUT_THRESHOLD;
+      if (justLocked) {
         user.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
-        logger.warn("account locked", {
-          userId: user.id,
-          ip: req.ip,
-          attempts: user.failedLoginAttempts,
-        });
       }
       await user.save();
+      await securityEvents.record({
+        userId: user.id,
+        organizationId: user.organizationId,
+        eventType: "login_failure",
+        req,
+        metadata: { attempts: user.failedLoginAttempts },
+      });
+      if (justLocked) {
+        await securityEvents.record({
+          userId: user.id,
+          organizationId: user.organizationId,
+          eventType: "account_locked",
+          req,
+          metadata: { lockedUntil: user.lockedUntil },
+        });
+      }
       return res.status(401).json(GENERIC_LOGIN_FAILURE);
     }
 
@@ -104,6 +117,13 @@ const login = async (req, res) => {
       user.lockedUntil = null;
       await user.save();
     }
+
+    await securityEvents.record({
+      userId: user.id,
+      organizationId: user.organizationId,
+      eventType: "login_success",
+      req,
+    });
 
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
