@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api/axios";
 import { GetStartedButton } from "../components/ui/GetStartedButton";
+import SecuritySection from "../components/SecuritySection";
 import toast from "react-hot-toast";
 import {
   Key,
@@ -100,7 +101,7 @@ const Settings = () => {
       </div>
 
       <div className="flex gap-2">
-        {["api-keys", "subscribers"].map((tab) => (
+        {["api-keys", "subscribers", "security"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -266,6 +267,8 @@ const Settings = () => {
           )}
         </div>
       )}
+
+      {activeTab === "security" && <SecuritySection />}
     </div>
   );
 };
