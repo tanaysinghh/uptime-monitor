@@ -1,5 +1,6 @@
 const { User, Organization, AuditLog } = require("../models");
 const bcrypt = require("bcryptjs");
+const { evaluatePassword } = require("../utils/passwordPolicy");
 const { handleError } = require("../utils/errorResponse");
 
 const getTeamMembers = async (req, res) => {
@@ -21,6 +22,11 @@ const inviteMember = async (req, res) => {
 
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can invite members" });
+    }
+
+    const pw = evaluatePassword(password, [email, name]);
+    if (!pw.ok) {
+      return res.status(400).json({ error: pw.reason, passwordScore: pw.score });
     }
 
     const existing = await User.findOne({ where: { email } });

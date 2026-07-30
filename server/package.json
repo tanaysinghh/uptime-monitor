@@ -35,7 +35,8 @@
     "node-cron": "^4.2.1",
     "pg": "^8.19.0",
     "sequelize": "^6.37.7",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "jest": "^30.4.2",

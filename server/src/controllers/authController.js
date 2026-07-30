@@ -2,11 +2,17 @@ const { User, Organization } = require("../models");
 const { generateAccessToken, generateRefreshToken } = require("../utils/tokens");
 const jwt = require("jsonwebtoken");
 const { handleError } = require("../utils/errorResponse");
+const { evaluatePassword } = require("../utils/passwordPolicy");
 const logger = require("../utils/logger");
 
 const register = async (req, res) => {
   try {
     const { email, password, name, orgName } = req.body;
+
+    const pw = evaluatePassword(password, [email, name, orgName]);
+    if (!pw.ok) {
+      return res.status(400).json({ error: pw.reason, passwordScore: pw.score });
+    }
 
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {

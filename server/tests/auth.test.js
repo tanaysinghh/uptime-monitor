@@ -99,7 +99,7 @@ describe("auth routes", () => {
     const app = makeApp();
     const res = await request(app).post("/api/auth/register").send({
       email: "founder@acme.co",
-      password: "supersecretpw",
+      password: "Tr0ub4dor&3xample!",
       name: "Founder",
       orgName: "Acme Inc",
     });
@@ -114,13 +114,13 @@ describe("auth routes", () => {
     const app = makeApp();
     await request(app).post("/api/auth/register").send({
       email: "dup@acme.co",
-      password: "supersecretpw",
+      password: "Tr0ub4dor&3xample!",
       name: "A",
       orgName: "Acme",
     });
     const res = await request(app).post("/api/auth/register").send({
       email: "dup@acme.co",
-      password: "supersecretpw",
+      password: "Tr0ub4dor&3xample!",
       name: "B",
       orgName: "Acme Two",
     });
@@ -140,7 +140,7 @@ describe("auth routes", () => {
     const app = makeApp();
     await request(app).post("/api/auth/register").send({
       email: "user@acme.co",
-      password: "correctpassword",
+      password: "Tr0ub4dor&3xample!",
       name: "U",
       orgName: "Acme3",
     });
@@ -155,13 +155,13 @@ describe("auth routes", () => {
     const app = makeApp();
     await request(app).post("/api/auth/register").send({
       email: "ok@acme.co",
-      password: "correctpassword",
+      password: "Tr0ub4dor&3xample!",
       name: "U",
       orgName: "Acme4",
     });
     const res = await request(app).post("/api/auth/login").send({
       email: "ok@acme.co",
-      password: "correctpassword",
+      password: "Tr0ub4dor&3xample!",
     });
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeTruthy();

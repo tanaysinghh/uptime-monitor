@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Activity } from "lucide-react";
 import { GetStartedButton } from "../components/ui/GetStartedButton";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import toast from "react-hot-toast";
 
 const Register = () => {
@@ -88,10 +89,11 @@ const Register = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 placeholder="••••••••"
               />
+              <PasswordStrengthMeter password={password} />
             </div>
             <div className="flex justify-center">
               <GetStartedButton onClick={handleSubmit} className="w-full justify-center">
