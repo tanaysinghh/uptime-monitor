@@ -11,7 +11,8 @@ const {
   changePassword,
 } = require("../controllers/authController");
 const { authenticate } = require("../middlewares/auth");
-const { authLimiter, loginLimiter, registerLimiter } = require("../middlewares/rateLimiters");
+const { authLimiter, loginLimiter, mfaLimiter, registerLimiter } = require("../middlewares/rateLimiters");
+const mfa = require("../controllers/mfaController");
 const { validate } = require("../middlewares/validate");
 const {
   registerValidator,
@@ -39,6 +40,35 @@ router.post(
   ],
   validate,
   changePassword
+);
+
+router.post("/mfa/setup", authenticate, mfaLimiter, mfa.setup);
+router.post(
+  "/mfa/verify",
+  authenticate,
+  mfaLimiter,
+  [body("code").isString().isLength({ min: 6, max: 10 })],
+  validate,
+  mfa.verify
+);
+router.post(
+  "/mfa/disable",
+  authenticate,
+  mfaLimiter,
+  [
+    body("password").isString().notEmpty(),
+    body("code").isString().isLength({ min: 6, max: 10 }),
+  ],
+  validate,
+  mfa.disable
+);
+router.post(
+  "/mfa/backup-codes/regenerate",
+  authenticate,
+  mfaLimiter,
+  [body("code").isString().isLength({ min: 6, max: 10 })],
+  validate,
+  mfa.regenerateBackupCodes
 );
 
 module.exports = router;

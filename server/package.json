@@ -34,8 +34,10 @@
     "morgan": "^1.10.1",
     "node-cron": "^4.2.1",
     "pg": "^8.19.0",
+    "qrcode": "^1.5.4",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.3",
+    "speakeasy": "^2.0.0",
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {

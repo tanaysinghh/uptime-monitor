@@ -10,3 +10,4 @@ process.env.DB_NAME = "test";
 process.env.DB_USER = "test";
 process.env.DB_PASSWORD = "test";
 process.env.LOG_LEVEL = "error";
+process.env.MFA_ENCRYPTION_KEY = "0".repeat(64);

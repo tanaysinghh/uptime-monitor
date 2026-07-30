@@ -49,6 +49,23 @@ const User = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    mfaEnabled: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
+    mfaSecret: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    mfaBackupCodes: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: [],
+    },
+    mfaConfirmedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     timestamps: true,

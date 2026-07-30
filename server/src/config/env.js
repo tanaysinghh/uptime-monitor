@@ -9,6 +9,7 @@ const REQUIRED_VARS = [
   "JWT_EXPIRES_IN",
   "JWT_REFRESH_EXPIRES_IN",
   "CLIENT_URL",
+  "MFA_ENCRYPTION_KEY",
 ];
 
 const MIN_SECRET_LENGTH = 32;
@@ -43,6 +44,15 @@ const validateEnv = () => {
 
     if (process.env.JWT_SECRET === process.env.JWT_REFRESH_SECRET) {
       console.error("FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be different.");
+      process.exit(1);
+    }
+
+    const mfaKeyHex = process.env.MFA_ENCRYPTION_KEY.replace(/[^0-9a-f]/gi, "");
+    if (mfaKeyHex.length !== 64) {
+      console.error(
+        "FATAL: MFA_ENCRYPTION_KEY must be a 64-character hex string (32 bytes). " +
+        "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
       process.exit(1);
     }
   }
