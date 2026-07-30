@@ -1,0 +1,12 @@
+process.env.NODE_ENV = "test";
+process.env.JWT_SECRET = "test_secret_at_least_32_characters_long_xxx";
+process.env.JWT_REFRESH_SECRET = "test_refresh_secret_at_least_32_chars_diff";
+process.env.JWT_EXPIRES_IN = "15m";
+process.env.JWT_REFRESH_EXPIRES_IN = "7d";
+process.env.CLIENT_URL = "http://localhost:5173";
+process.env.DB_HOST = "localhost";
+process.env.DB_PORT = "5432";
+process.env.DB_NAME = "test";
+process.env.DB_USER = "test";
+process.env.DB_PASSWORD = "test";
+process.env.LOG_LEVEL = "error";

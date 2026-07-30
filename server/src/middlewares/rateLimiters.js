@@ -4,6 +4,8 @@ const baseOptions = {
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },
+  skip: () => process.env.NODE_ENV === "test",
+  validate: { keyGeneratorIpFallback: false },
 };
 
 const authLimiter = rateLimit({
