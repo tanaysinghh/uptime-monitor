@@ -10,7 +10,8 @@ const generateAccessToken = (userId, sessionId) => {
 };
 
 const generateRefreshToken = (userId, sessionId) => {
-  return jwt.sign({ userId, sid: sessionId }, process.env.JWT_REFRESH_SECRET, {
+  const jti = crypto.randomUUID();
+  return jwt.sign({ userId, sid: sessionId, jti }, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
   });
 };
