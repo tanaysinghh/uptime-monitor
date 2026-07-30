@@ -1,9 +1,13 @@
 import axios from "axios";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
 });
+
+export { API_BASE_URL };
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
@@ -18,12 +22,18 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes("/auth/")
+    ) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = localStorage.getItem("refreshToken");
-        const response = await axios.post("/api/auth/refresh-token", {
+        if (!refreshToken) throw new Error("No refresh token");
+
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
           refreshToken,
         });
 
@@ -36,7 +46,9 @@ api.interceptors.response.use(
       } catch (refreshError) {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
-        window.location.href = "/login";
+        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
         return Promise.reject(refreshError);
       }
     }
