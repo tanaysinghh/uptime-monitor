@@ -1,0 +1,82 @@
+# Render Blueprint for UptimeMonitor
+# https://render.com/docs/blueprint-spec
+#
+# One-click deploys the server (Docker), a managed Postgres, and the
+# client (static site built from Vite).
+#
+# After first sync, in the Render dashboard set:
+#   uptime-monitor-server  -> CLIENT_URL to the URL Render assigns the
+#                             uptime-monitor-client static site
+#   uptime-monitor-client  -> VITE_API_URL and VITE_SOCKET_URL to the
+#                             server's URL (build-time)
+# then trigger a manual deploy of the client so the vars are baked in.
+
+databases:
+  - name: uptime-monitor-db
+    plan: free
+    databaseName: uptime_monitor
+    user: uptime
+
+services:
+  - type: web
+    name: uptime-monitor-server
+    runtime: docker
+    plan: free
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: LOG_LEVEL
+        value: info
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ALLOW_PRIVATE_URLS
+        value: "false"
+      - key: DB_HOST
+        fromDatabase:
+          name: uptime-monitor-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: uptime-monitor-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: uptime-monitor-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: uptime-monitor-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: uptime-monitor-db
+          property: password
+      - key: CLIENT_URL
+        sync: false
+
+  - type: web
+    name: uptime-monitor-client
+    runtime: static
+    plan: free
+    buildCommand: cd client && npm ci && npm run build
+    staticPublishPath: ./client/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_SOCKET_URL
+        sync: false

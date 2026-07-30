@@ -1,6 +1,27 @@
 # UptimeMonitor
 
+[![CI](https://github.com/tanaysinghh/uptime-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/tanaysinghh/uptime-monitor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A full-stack API health monitoring platform with real-time alerts, public status pages, team management, and programmatic API access. Built to monitor the uptime, response time, and health of APIs and websites.
+
+## Live Demo
+
+🚀 **[uptime-monitor-client.onrender.com](https://uptime-monitor-client.onrender.com)** — *(URL updated once Render blueprint syncs; free tier cold-starts in ~30s on first hit)*
+
+- **Try it**: register with any email → the first account becomes the org admin
+- **Public status page**: `/status/<your-org-slug>` (no login needed)
+- **Public status badge**: `GET /api/public/status/<slug>/badge.svg` — embed in your own README
+
+## Screenshots
+
+> Screenshots live in [`docs/screenshots/`](docs/screenshots/). Recording pending.
+
+| Dashboard | Monitor detail | Public status page |
+| --- | --- | --- |
+| _dashboard.png_ | _monitor-detail.png_ | _status-page.png_ |
+
+
 
 ## Features
 
@@ -47,9 +68,22 @@ A full-stack API health monitoring platform with real-time alerts, public status
 - **Toast Notifications** — Real-time browser notifications for incidents and recoveries
 - **Auto-Refresh** — Dashboard and status pages poll for updates at regular intervals
 
+### Security & Reliability
+- **Fail-fast env validation** — Server refuses to boot if required vars are missing or placeholder/short JWT secrets are used in production
+- **Rate limiting** — Per-route limiters on auth (10/15min), register (5/hr), heartbeat (60/min/token), subscribe (5/hr)
+- **SSRF guard** — Monitor URLs are validated against RFC1918 / loopback / link-local / CGNAT ranges and DNS-resolved before the scheduler is allowed to fetch them
+- **Role-based access control** — `admin` / `editor` / `viewer` enforced on every write route via middleware, not per-controller checks
+- **Input validation** — express-validator schemas on every endpoint; consistent 400 responses with per-field errors
+- **Sanitized errors** — 5xx responses return generic messages in production; every response carries an `X-Request-Id` for correlation
+- **Graceful shutdown** — SIGTERM drains the HTTP server, closes Socket.IO, stops cron jobs, and closes the DB pool within 15s
+- **DB-checked /health** — 503 when Postgres is unreachable, so load balancers and Render probe correctly
+
 ### Infrastructure
 - **Data Retention** — Automatic cleanup of check records older than 90 days via nightly cron job
-- **Docker Ready** — Full Docker Compose setup with PostgreSQL, Node.js server, and Nginx-served React client
+- **Indexed hot paths** — Every dashboard/status/scheduler query hits an index (Checks(monitorId, checkedAt), Monitors(orgId, status), etc.)
+- **Docker Ready** — Multi-stage build, non-root user, tini as PID 1, HEALTHCHECK baked in
+- **CI on every push** — GitHub Actions runs 56 Jest tests + client lint + Vite build
+- **One-click deploy** — `render.yaml` blueprint provisions the server, managed Postgres, and static client
 - **JWT Authentication** — Access tokens with 15m expiry, refresh tokens with 7d expiry, automatic token rotation
 
 ## Tech Stack
@@ -143,21 +177,15 @@ npm install
 psql -U postgres -c "CREATE DATABASE uptime_monitor;"
 ```
 
-4. **Create `server/.env`**
+4. **Create `.env` at the repo root**
 
-```env
-PORT=5000
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=uptime_monitor
-DB_USER=postgres
-DB_PASSWORD=your_password
-JWT_SECRET=your_jwt_secret
-JWT_REFRESH_SECRET=your_refresh_secret
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=7d
-CLIENT_URL=http://localhost:5173
+```bash
+cp .env.example .env
+# then fill in real values — generate JWT secrets with:
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
+
+The server validates env on boot and will refuse to start with placeholder or missing values in production.
 
 5. **Start the server**
 
@@ -175,13 +203,26 @@ npm run dev
 
 7. **Open the app** at http://localhost:5173
 
+### Running Tests
+
+```bash
+cd server
+npm test
+```
+
+56 tests, no live DB required (models are mocked). Runs in ~2s.
+
 ### Docker Deployment
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-The app will be available at http://localhost with PostgreSQL, the API server, and Nginx all running in containers.
+The app will be available at http://localhost with PostgreSQL, the API server, and Nginx all running in containers. Postgres has a healthcheck; the server waits for it before starting.
+
+### Cloud Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the Render blueprint one-click deploy, Docker Compose self-host, and Vercel + Render split deploy.
 
 ## Database Schema
 
@@ -267,8 +308,15 @@ The application uses 9 Sequelize models:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /api/public/status/:slug | Public status page data |
+| GET | /api/public/status/:slug/badge.svg | Embeddable status badge (SVG) |
+| GET | /api/public/status/:slug/uptime.svg | Embeddable uptime % badge (`?period=7d\|30d\|90d`) |
 | POST | /api/public/status/:slug/subscribe | Subscribe to updates |
 | GET | /api/public/unsubscribe/:token | Unsubscribe |
+
+### Health
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/health | Liveness + DB readiness; 503 when DB is unreachable |
 
 ## Architecture
 
@@ -307,12 +355,29 @@ The application uses 9 Sequelize models:
 
 ## Key Engineering Decisions
 
-- **JSONB for assertions and config** — Flexible schema for alert channel configs and monitor assertions without migration headaches
-- **Consecutive failure threshold** — 3 failures before marking down to prevent false alarms from network blips
-- **SHA-256 hashed API keys** — Keys are only shown once at creation; stored as irreversible hashes
-- **node-cron over BullMQ** — Simpler dependency (no Redis required) while still supporting per-monitor intervals
-- **Sequelize ORM** — Type-safe database access with automatic migration via sync({ alter: true })
-- **Refresh token rotation** — New refresh token issued on each refresh to limit token reuse attacks
+- **JSONB for assertions and config** — Flexible schema for alert-channel configs and monitor assertions without migration churn
+- **Consecutive failure threshold** — 3 failures before marking down to filter network blips; single miss for heartbeats since those are already coarse
+- **SHA-256 hashed API keys** — Keys shown once at creation; only the hash is stored, so a DB dump can't be replayed
+- **node-cron over BullMQ** — Same dev machine can run everything (no Redis) and 30s tick loops are simpler to reason about than a queue at this scale
+- **Sequelize `sync({ alter: true })` in dev only** — Fast iteration locally; production uses plain `sync()` and the "at scale" section below covers the real migration story
+- **Refresh token rotation** — A new refresh token is issued on every refresh, shortening the useful lifetime of a stolen one
+- **Rate limits scoped per surface** — Auth (10/15min), register (5/hr), heartbeat (60/min/token), subscribe (5/hr) — each tuned for its abuse case
+- **SSRF guard runs before any outbound axios call** — DNS resolution + private-range check happens on monitor create/update, not just at check time
+- **Central error middleware, not per-controller `error.message` leaks** — Every 5xx in production returns `{ error: "Internal server error", requestId }`; the real error is logged with the request ID so triage still works
+
+## What I'd Do Differently at Scale
+
+Interviewer question I'm ready for: *"This works for a demo. What breaks first?"*
+
+- **Refresh-token invalidation** — Right now refresh tokens are stateless JWTs; a stolen one is valid until it expires. At scale I'd add a `RefreshToken` table with `revokedAt` (or a `tokenVersion` int on `User` bumped on logout / password change) so logout is instant across devices.
+- **Tokens in `localStorage`** — Vulnerable to XSS. Real fix: httpOnly, SameSite=Lax cookies for both access and refresh, with a `/csrf-token` endpoint issuing a double-submit token. Wasn't done here because it turns "one commit" into a rework of the axios interceptor, socket auth, and the entire dev/prod cookie config.
+- **`sequelize.sync({ alter: true })` in dev** — Fast now, dangerous later. Move to `sequelize-cli` migrations with a proper up/down file per schema change so production deploys are reviewable and reversible.
+- **Sequential scheduler loop** — `checkAllMonitors` awaits monitors one at a time; at ~500 monitors a 30s tick can't keep up. Fix: bounded `Promise.allSettled` batches (say 25 in flight), then move to a real queue (BullMQ + Redis) when checks need retries, backoff, or worker distribution across processes.
+- **In-process rate limiter store** — `express-rate-limit` defaults to memory, so limits reset per process. Multi-instance deploys need a Redis or Postgres store to share the counter.
+- **Alert dedupe is per-channel cooldown, not per-incident** — Two down->up flaps in the cooldown window swallow the second alert. Better: alert per incident state transition, with a "flap detected" grouping.
+- **Public status page fires N daily-stat queries** — Fine at ~20 monitors, poor at 500. Would collapse into a single `GROUP BY monitorId, DATE(checkedAt)` and add a materialized view refreshed every few minutes.
+- **No metrics endpoint** — `/metrics` in Prometheus format (request counts, latency histograms, check outcomes, scheduler lag) would let this thing monitor itself.
+- **Frontend accessibility** — Nav has no `aria-current`, no skip link. Contrast is fine (gray-100 on gray-950) but the app hasn't been tested with a screen reader end-to-end.
 
 ## License
 
