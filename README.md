@@ -68,9 +68,19 @@ A full-stack API health monitoring platform with real-time alerts, public status
 - **Toast Notifications** — Real-time browser notifications for incidents and recoveries
 - **Auto-Refresh** — Dashboard and status pages poll for updates at regular intervals
 
+### Authentication & Account Security
+- **TOTP Multi-Factor Authentication** — Optional per user, standard RFC 6238 TOTP (works with 1Password, Authy, Google Authenticator, Bitwarden). Secrets are AES-256-GCM encrypted at rest with a key kept out of the database.
+- **10 single-use backup codes** — SHA-256 hashed at rest, constant-time compare on redeem, human-readable `xxxx-xxxx` format from a base32 alphabet minus the confusable characters (0, O, 1, I, L). Users can regenerate them at any time (requires a live TOTP).
+- **Two-step login** — When MFA is enabled the login endpoint issues a short-lived, single-use `mfaChallengeToken` instead of session tokens. A dedicated `/mfa/challenge` endpoint accepts either a TOTP or a backup code before real tokens are minted.
+- **Account lockout** — 5 consecutive failed logins lock the account for 15 minutes; response stays a generic `401 Invalid credentials` in every failure mode, so lockout state is not leaked to attackers (no user enumeration). Lockouts land in the SecurityEvent log.
+- **Server-side session store** — Every refresh token corresponds to a `Session` row (device, IP, last-used, expiresAt). Refresh **rotates** the stored hash + a fresh `jti` on every call — replaying a prior refresh token is detected and rejected.
+- **Real session revocation** — `GET /auth/sessions`, `DELETE /auth/sessions/:id`, `POST /auth/logout-all-devices`. Password change and MFA disable auto-revoke every other active session.
+- **Password policy via zxcvbn** — Registration and password change reject scores below 2, feed the user's own inputs (email, name) into zxcvbn so passwords derived from them are rejected too. Client shows a directional strength meter as they type.
+- **Per-user security event log** — `SecurityEvent` records login success/failure, account lock, MFA enable/disable, backup code use, password change, and every session revocation with IP + user agent. Users see their own events in Settings → Security; there's no way to view another user's events.
+
 ### Security & Reliability
-- **Fail-fast env validation** — Server refuses to boot if required vars are missing or placeholder/short JWT secrets are used in production
-- **Rate limiting** — Per-route limiters on auth (10/15min), register (5/hr), heartbeat (60/min/token), subscribe (5/hr)
+- **Fail-fast env validation** — Server refuses to boot if required vars are missing or placeholder/short JWT secrets are used in production; `MFA_ENCRYPTION_KEY` must be a 32-byte hex string
+- **Rate limiting** — Per-route limiters on login (10/15min/IP), register (5/hr), refresh (20/15min), MFA challenge/verify (10/5min), heartbeat (60/min/token), subscribe (5/hr) — layered with the account lockout so brute-force needs to beat both
 - **SSRF guard** — Monitor URLs are validated against RFC1918 / loopback / link-local / CGNAT ranges and DNS-resolved before the scheduler is allowed to fetch them
 - **Role-based access control** — `admin` / `editor` / `viewer` enforced on every write route via middleware, not per-controller checks
 - **Input validation** — express-validator schemas on every endpoint; consistent 400 responses with per-field errors
@@ -245,9 +255,23 @@ The application uses 9 Sequelize models:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | /api/auth/register | Create account with organization |
-| POST | /api/auth/login | Sign in |
-| POST | /api/auth/refresh-token | Refresh JWT tokens |
+| POST | /api/auth/login | Sign in; returns `{ requiresMfa, mfaChallengeToken }` when MFA is on |
+| POST | /api/auth/mfa/challenge | Complete MFA with TOTP or backup code |
+| POST | /api/auth/refresh-token | Rotate refresh token (single-use hash + jti) |
+| POST | /api/auth/password | Change password (revokes other sessions) |
 | GET | /api/auth/me | Get current user profile |
+| GET | /api/auth/sessions | List caller's active sessions |
+| DELETE | /api/auth/sessions/:id | Revoke a session |
+| POST | /api/auth/logout-all-devices | Revoke every session for caller |
+| POST | /api/auth/mfa/setup | Start MFA enrollment (returns QR + secret) |
+| POST | /api/auth/mfa/verify | Confirm first TOTP code; returns 10 backup codes ONCE |
+| POST | /api/auth/mfa/disable | Requires current password + valid TOTP |
+| POST | /api/auth/mfa/backup-codes/regenerate | Replace backup codes (requires TOTP) |
+
+### Security
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/security/events | Caller's own security events (login, MFA, sessions, password) |
 
 ### Monitors
 | Method | Endpoint | Description |
@@ -369,11 +393,11 @@ The application uses 9 Sequelize models:
 
 Interviewer question I'm ready for: *"This works for a demo. What breaks first?"*
 
-- **Refresh-token invalidation** — Right now refresh tokens are stateless JWTs; a stolen one is valid until it expires. At scale I'd add a `RefreshToken` table with `revokedAt` (or a `tokenVersion` int on `User` bumped on logout / password change) so logout is instant across devices.
 - **Tokens in `localStorage`** — Vulnerable to XSS. Real fix: httpOnly, SameSite=Lax cookies for both access and refresh, with a `/csrf-token` endpoint issuing a double-submit token. Wasn't done here because it turns "one commit" into a rework of the axios interceptor, socket auth, and the entire dev/prod cookie config.
+- **MFA_ENCRYPTION_KEY in an env var** — Fine for a single-node deploy; at scale I'd move it to a KMS (AWS KMS, GCP Cloud KMS, HashiCorp Vault) with envelope encryption per user, so a single compromised env var doesn't disclose every enrolled TOTP secret.
+- **In-memory rate-limit store** — `express-rate-limit` defaults to memory, so limits reset per process. Multi-instance deploys need a Redis store to share counters; MFA and login limiters especially need shared state or an attacker can hop instances.
 - **`sequelize.sync({ alter: true })` in dev** — Fast now, dangerous later. Move to `sequelize-cli` migrations with a proper up/down file per schema change so production deploys are reviewable and reversible.
 - **Sequential scheduler loop** — `checkAllMonitors` awaits monitors one at a time; at ~500 monitors a 30s tick can't keep up. Fix: bounded `Promise.allSettled` batches (say 25 in flight), then move to a real queue (BullMQ + Redis) when checks need retries, backoff, or worker distribution across processes.
-- **In-process rate limiter store** — `express-rate-limit` defaults to memory, so limits reset per process. Multi-instance deploys need a Redis or Postgres store to share the counter.
 - **Alert dedupe is per-channel cooldown, not per-incident** — Two down->up flaps in the cooldown window swallow the second alert. Better: alert per incident state transition, with a "flap detected" grouping.
 - **Public status page fires N daily-stat queries** — Fine at ~20 monitors, poor at 500. Would collapse into a single `GROUP BY monitorId, DATE(checkedAt)` and add a materialized view refreshed every few minutes.
 - **No metrics endpoint** — `/metrics` in Prometheus format (request counts, latency histograms, check outcomes, scheduler lag) would let this thing monitor itself.

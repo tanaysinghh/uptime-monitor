@@ -40,6 +40,11 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # MFA_ENCRYPTION_KEY must be exactly 64 hex chars; generateValue produces
+      # arbitrary-format strings, so set it manually. Generate with:
+      #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: MFA_ENCRYPTION_KEY
+        sync: false
       - key: ALLOW_PRIVATE_URLS
         value: "false"
       - key: DB_HOST

@@ -23,6 +23,7 @@ sync. Free tier is enough to demo — no card required.
    dashboard — you'll wire them together next.
 5. In **uptime-monitor-server → Environment**, set:
    - `CLIENT_URL` = the client's URL (e.g. `https://uptime-monitor-client.onrender.com`) — no trailing slash.
+   - `MFA_ENCRYPTION_KEY` = a 64-char hex string. Generate locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and paste. **Keep this secret** — rotating it invalidates every user's enrolled TOTP.
 6. In **uptime-monitor-client → Environment**, set:
    - `VITE_API_URL` = `<server-url>/api`
    - `VITE_SOCKET_URL` = `<server-url>` (no path)
@@ -71,6 +72,7 @@ Then set `CLIENT_URL` on the Render server to the Vercel URL.
 | `JWT_REFRESH_EXPIRES_IN` | server | `7d` | |
 | `CLIENT_URL` | server | — | Origin allowed by CORS + Socket.IO |
 | `ALLOW_PRIVATE_URLS` | server | `false` | `true` only for localhost demos |
+| `MFA_ENCRYPTION_KEY` | server | — | 64-char hex (32 bytes). Rotating invalidates every enrolled TOTP — users must re-enroll. Render generates one via the blueprint. |
 | `LOG_LEVEL` | server | `info` | `error / warn / info / debug` |
 | `VITE_API_URL` | client build | `/api` | Full URL in split deploys |
 | `VITE_SOCKET_URL` | client build | current origin | Full URL in split deploys |
