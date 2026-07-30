@@ -43,8 +43,6 @@ const useSocket = (roomType, roomId, handlers) => {
       socketRef.current = null;
     };
   }, [roomType, roomId]);
-
-  return socketRef.current;
 };
 
 export default useSocket;
