@@ -32,6 +32,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await api.post("/auth/login", { email, password });
+    if (response.data.requiresMfa) {
+      return { requiresMfa: true, mfaChallengeToken: response.data.mfaChallengeToken };
+    }
+    const { user, accessToken, refreshToken } = response.data;
+    localStorage.setItem("accessToken", accessToken);
+    localStorage.setItem("refreshToken", refreshToken);
+    setUser(user);
+    return { user };
+  };
+
+  const completeMfa = async (mfaChallengeToken, code) => {
+    const response = await api.post("/auth/mfa/challenge", { mfaChallengeToken, code });
     const { user, accessToken, refreshToken } = response.data;
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("refreshToken", refreshToken);
@@ -60,7 +72,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, completeMfa }}>
       {children}
     </AuthContext.Provider>
   );
