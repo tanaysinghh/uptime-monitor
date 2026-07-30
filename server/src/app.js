@@ -4,6 +4,10 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 require("dotenv").config();
 
+const sequelize = require("./config/database");
+const logger = require("./utils/logger");
+const { requestId } = require("./middlewares/requestId");
+
 const authRoutes = require("./routes/authRoutes");
 const monitorRoutes = require("./routes/monitorRoutes");
 const statsRoutes = require("./routes/statsRoutes");
@@ -20,6 +24,9 @@ const isProd = process.env.NODE_ENV === "production";
 
 app.set("trust proxy", 1);
 
+morgan.token("id", (req) => req.id);
+
+app.use(requestId);
 app.use(helmet());
 app.use(
   cors({
@@ -27,11 +34,34 @@ app.use(
     credentials: true,
   })
 );
-app.use(morgan(isProd ? "combined" : "dev"));
+app.use(
+  morgan(
+    isProd
+      ? ':remote-addr :id :method :url :status :res[content-length] - :response-time ms'
+      : ':method :url :status :response-time ms - :id'
+  )
+);
 app.use(express.json({ limit: "1mb" }));
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+app.get("/api/health", async (req, res) => {
+  const started = Date.now();
+  let dbOk = false;
+  let dbError = null;
+  try {
+    await sequelize.query("SELECT 1");
+    dbOk = true;
+  } catch (err) {
+    dbError = err.message;
+  }
+  const status = dbOk ? 200 : 503;
+  res.status(status).json({
+    status: dbOk ? "ok" : "degraded",
+    db: dbOk ? "ok" : "down",
+    dbError: dbOk ? undefined : (isProd ? "unavailable" : dbError),
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    checkTimeMs: Date.now() - started,
+  });
 });
 
 app.use("/api/auth", authRoutes);
@@ -50,14 +80,19 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("[unhandled]", err && err.stack ? err.stack : err);
+  logger.error("unhandled request error", {
+    reqId: req.id,
+    path: req.originalUrl,
+    method: req.method,
+    stack: err && err.stack ? err.stack : String(err),
+  });
   const status = err.status || err.statusCode || 500;
   const message = isProd
     ? status >= 500
       ? "Internal server error"
       : err.message || "Request failed"
     : err.message || String(err);
-  res.status(status).json({ error: message });
+  res.status(status).json({ error: message, requestId: req.id });
 });
 
 module.exports = app;

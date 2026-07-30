@@ -1,7 +1,7 @@
 const cron = require("node-cron");
 const { checkAllMonitors } = require("./healthCheckService");
 const { checkHeartbeatMonitors } = require("./heartbeatService");
-const { startCleanup } = require("./dataCleanup");
+const { startCleanup, stopCleanup } = require("./dataCleanup");
 
 let schedulerTask = null;
 let heartbeatTask = null;
@@ -36,6 +36,7 @@ const stopScheduler = () => {
   if (heartbeatTask) {
     heartbeatTask.stop();
   }
+  stopCleanup();
 };
 
 module.exports = { startScheduler, stopScheduler };
