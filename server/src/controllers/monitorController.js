@@ -1,10 +1,16 @@
 const { Monitor, Check, Incident } = require("../models");
 const { Op } = require("sequelize");
 const { handleError } = require("../utils/errorResponse");
+const { validateMonitorUrl } = require("../utils/ssrfGuard");
 
 const createMonitor = async (req, res) => {
   try {
     const { name, url, method, headers, body, intervalSeconds, timeoutMs, expectedStatus, tags } = req.body;
+
+    const urlCheck = await validateMonitorUrl(url);
+    if (!urlCheck.ok) {
+      return res.status(400).json({ error: urlCheck.reason });
+    }
 
     const monitor = await Monitor.create({
       name,
@@ -68,6 +74,13 @@ const updateMonitor = async (req, res) => {
 
     if (!monitor) {
       return res.status(404).json({ error: "Monitor not found" });
+    }
+
+    if (req.body.url !== undefined && req.body.url !== monitor.url) {
+      const urlCheck = await validateMonitorUrl(req.body.url);
+      if (!urlCheck.ok) {
+        return res.status(400).json({ error: urlCheck.reason });
+      }
     }
 
     const allowedFields = [
