@@ -2,7 +2,9 @@ const crypto = require("crypto");
 const { Monitor, Check, Incident, Organization } = require("../models");
 const { Op } = require("sequelize");
 const { emitMonitorUpdate, emitIncidentUpdate } = require("./socketService");
+const { sendAlert } = require("./alertService");
 const { handleError } = require("../utils/errorResponse");
+const logger = require("../utils/logger");
 
 const HEARTBEAT_FAILURE_THRESHOLD = 1;
 
@@ -78,6 +80,10 @@ const receiveHeartbeat = async (req, res) => {
           incident: activeIncident,
           monitorName: monitor.name,
         });
+
+        sendAlert(monitor, activeIncident, "up").catch((err) =>
+          logger.error("sendAlert (heartbeat up) failed", { monitorId: monitor.id, error: err.message })
+        );
       }
     }
 
@@ -156,6 +162,10 @@ const checkHeartbeatMonitors = async () => {
           previousStatus,
           currentStatus: "down",
         });
+
+        sendAlert(monitor, incident, "down").catch((err) =>
+          logger.error("sendAlert (heartbeat down) failed", { monitorId: monitor.id, error: err.message })
+        );
       }
 
       await monitor.save();

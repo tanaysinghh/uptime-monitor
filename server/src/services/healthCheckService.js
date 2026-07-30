@@ -5,6 +5,8 @@ const { Monitor, Check, Incident, Organization } = require("../models");
 const { Op } = require("sequelize");
 const { emitMonitorUpdate, emitIncidentUpdate, emitCheckResult } = require("./socketService");
 const { evaluateAssertions } = require("../utils/assertions");
+const { sendAlert } = require("./alertService");
+const logger = require("../utils/logger");
 
 const FAILURE_THRESHOLD = 3;
 
@@ -195,6 +197,10 @@ const handleStatusChange = async (monitor, isSuccess) => {
           incident: activeIncident,
           monitorName: monitor.name,
         });
+
+        sendAlert(monitor, activeIncident, "up").catch((err) =>
+          logger.error("sendAlert (up) failed", { monitorId: monitor.id, error: err.message })
+        );
       }
     }
 
@@ -222,6 +228,10 @@ const handleStatusChange = async (monitor, isSuccess) => {
           incident,
           monitorName: monitor.name,
         });
+
+        sendAlert(monitor, incident, "down").catch((err) =>
+          logger.error("sendAlert (down) failed", { monitorId: monitor.id, error: err.message })
+        );
       }
     }
 
