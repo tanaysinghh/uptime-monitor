@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { authenticate } = require("../middlewares/auth");
+const { requireEditor } = require("../middlewares/rbac");
 const {
   createMonitor,
   getMonitors,
@@ -13,12 +14,13 @@ const {
 
 router.use(authenticate);
 
-router.post("/", createMonitor);
 router.get("/", getMonitors);
 router.get("/:id", getMonitor);
-router.put("/:id", updateMonitor);
-router.delete("/:id", deleteMonitor);
 router.get("/:id/checks", getMonitorChecks);
 router.get("/:id/incidents", getMonitorIncidents);
+
+router.post("/", requireEditor, createMonitor);
+router.put("/:id", requireEditor, updateMonitor);
+router.delete("/:id", requireEditor, deleteMonitor);
 
 module.exports = router;

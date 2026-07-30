@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { authenticate } = require("../middlewares/auth");
+const { requireEditor } = require("../middlewares/rbac");
 const {
   getChannels,
   createChannel,
@@ -13,10 +14,11 @@ const {
 router.use(authenticate);
 
 router.get("/channels", getChannels);
-router.post("/channels", createChannel);
-router.put("/channels/:id", updateChannel);
-router.delete("/channels/:id", deleteChannel);
-router.post("/channels/:id/test", testChannel);
 router.get("/logs", getAlertLogs);
+
+router.post("/channels", requireEditor, createChannel);
+router.put("/channels/:id", requireEditor, updateChannel);
+router.delete("/channels/:id", requireEditor, deleteChannel);
+router.post("/channels/:id/test", requireEditor, testChannel);
 
 module.exports = router;
