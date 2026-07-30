@@ -10,6 +10,7 @@ const AuditLog = require("./AuditLog");
 const Subscriber = require("./Subscriber");
 const ApiKey = require("./ApiKey");
 const SecurityEvent = require("./SecurityEvent");
+const Session = require("./Session");
 
 Organization.hasMany(User, { foreignKey: "organizationId" });
 User.belongsTo(Organization, { foreignKey: "organizationId" });
@@ -53,6 +54,9 @@ ApiKey.belongsTo(User, { foreignKey: "userId" });
 User.hasMany(SecurityEvent, { foreignKey: "userId" });
 SecurityEvent.belongsTo(User, { foreignKey: "userId" });
 
+User.hasMany(Session, { foreignKey: "userId" });
+Session.belongsTo(User, { foreignKey: "userId" });
+
 module.exports = {
   sequelize,
   User,
@@ -66,4 +70,5 @@ module.exports = {
   Subscriber,
   ApiKey,
   SecurityEvent,
+  Session,
 };

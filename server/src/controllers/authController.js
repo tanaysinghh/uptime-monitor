@@ -1,10 +1,21 @@
-const { User, Organization } = require("../models");
-const { generateAccessToken, generateRefreshToken } = require("../utils/tokens");
+const { User, Organization, Session } = require("../models");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { handleError } = require("../utils/errorResponse");
 const { evaluatePassword } = require("../utils/passwordPolicy");
 const securityEvents = require("../utils/securityEvents");
+const sessionService = require("../services/sessionService");
 const logger = require("../utils/logger");
+
+const publicUser = (user) => ({
+  id: user.id,
+  email: user.email,
+  name: user.name,
+  role: user.role,
+  organizationId: user.organizationId,
+  organization: user.Organization,
+  mfaEnabled: !!user.mfaEnabled,
+});
 
 const register = async (req, res) => {
   try {
@@ -40,17 +51,10 @@ const register = async (req, res) => {
       isVerified: true,
     });
 
-    const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
+    const { accessToken, refreshToken } = await sessionService.issueSession(user, req);
 
     res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        organizationId: organization.id,
-      },
+      user: publicUser({ ...user.toJSON ? user.toJSON() : user, Organization: organization }),
       accessToken,
       refreshToken,
     });
@@ -125,18 +129,10 @@ const login = async (req, res) => {
       req,
     });
 
-    const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
+    const { accessToken, refreshToken } = await sessionService.issueSession(user, req);
 
     res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        organizationId: user.organizationId,
-        organization: user.Organization,
-      },
+      user: publicUser(user),
       accessToken,
       refreshToken,
     });
@@ -148,24 +144,39 @@ const login = async (req, res) => {
 const refreshToken = async (req, res) => {
   try {
     const { refreshToken: token } = req.body;
-
     if (!token) {
       return res.status(401).json({ error: "Refresh token required" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findByPk(decoded.userId);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    } catch {
+      return res.status(401).json({ error: "Invalid refresh token" });
+    }
 
+    if (!decoded.sid) {
+      return res.status(401).json({ error: "Invalid refresh token" });
+    }
+
+    const session = await sessionService.findActiveSession(decoded.sid, token);
+    if (!session) {
+      return res.status(401).json({ error: "Session revoked or expired" });
+    }
+
+    const user = await User.findByPk(decoded.userId);
     if (!user) {
       return res.status(401).json({ error: "User not found" });
     }
 
-    const accessToken = generateAccessToken(user.id);
-    const newRefreshToken = generateRefreshToken(user.id);
-
+    const { accessToken, refreshToken: newRefreshToken } = await sessionService.rotateSession(
+      session,
+      user,
+      req
+    );
     res.json({ accessToken, refreshToken: newRefreshToken });
   } catch (error) {
-    return res.status(401).json({ error: "Invalid refresh token" });
+    handleError(res, error);
   }
 };
 
@@ -173,13 +184,111 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
       include: [Organization],
-      attributes: { exclude: ["password"] },
+      attributes: { exclude: ["password", "mfaSecret", "mfaBackupCodes"] },
     });
-
     res.json({ user });
   } catch (error) {
     handleError(res, error);
   }
 };
 
-module.exports = { register, login, refreshToken, getMe };
+const getSessions = async (req, res) => {
+  try {
+    const sessions = await Session.findAll({
+      where: { userId: req.user.id, revokedAt: null },
+      order: [["lastUsedAt", "DESC"]],
+      attributes: ["id", "userAgent", "ipAddress", "createdAt", "lastUsedAt", "expiresAt"],
+    });
+    const currentSid = req.currentSessionId || null;
+    res.json({
+      sessions: sessions.map((s) => ({ ...s.toJSON(), current: s.id === currentSid })),
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const revokeSession = async (req, res) => {
+  try {
+    const session = await Session.findOne({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+    if (!session || session.revokedAt) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    await sessionService.revokeSession(session);
+    await securityEvents.record({
+      userId: req.user.id,
+      organizationId: req.user.organizationId,
+      eventType: "session_revoked",
+      req,
+      metadata: { sessionId: session.id },
+    });
+    res.json({ message: "Session revoked" });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const logoutAllDevices = async (req, res) => {
+  try {
+    const revoked = await sessionService.revokeAllForUser(req.user.id);
+    await securityEvents.record({
+      userId: req.user.id,
+      organizationId: req.user.organizationId,
+      eventType: "sessions_revoked_all",
+      req,
+      metadata: { revoked },
+    });
+    res.json({ message: "All sessions revoked", revoked });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const ok = await user.comparePassword(currentPassword);
+    if (!ok) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const pw = evaluatePassword(newPassword, [user.email, user.name]);
+    if (!pw.ok) {
+      return res.status(400).json({ error: pw.reason, passwordScore: pw.score });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+    user.passwordChangedAt = new Date();
+    await user.save();
+
+    const currentSid = req.currentSessionId || null;
+    await sessionService.revokeAllForUser(user.id, { exceptSessionId: currentSid });
+
+    await securityEvents.record({
+      userId: user.id,
+      organizationId: user.organizationId,
+      eventType: "password_changed",
+      req,
+    });
+
+    res.json({ message: "Password changed. Other active sessions were signed out." });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  refreshToken,
+  getMe,
+  getSessions,
+  revokeSession,
+  logoutAllDevices,
+  changePassword,
+};

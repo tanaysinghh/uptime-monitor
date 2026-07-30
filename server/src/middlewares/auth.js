@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { User } = require("../models");
+const { User, Session } = require("../models");
 
 const authenticate = async (req, res, next) => {
   try {
@@ -9,11 +9,32 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.userId);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: "Invalid token" });
+    }
 
+    const user = await User.findByPk(decoded.userId);
     if (!user) {
       return res.status(401).json({ error: "User not found" });
+    }
+
+    if (decoded.sid) {
+      const session = await Session.findByPk(decoded.sid);
+      if (!session || session.revokedAt) {
+        return res.status(401).json({ error: "Session revoked" });
+      }
+      req.currentSessionId = decoded.sid;
+    }
+
+    if (
+      user.passwordChangedAt &&
+      decoded.iat &&
+      Math.floor(user.passwordChangedAt.getTime() / 1000) > decoded.iat
+    ) {
+      return res.status(401).json({ error: "Token invalidated by password change" });
     }
 
     req.user = user;

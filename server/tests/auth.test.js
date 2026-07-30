@@ -2,11 +2,45 @@ const bcrypt = require("bcryptjs");
 
 const mockUsers = new Map();
 const mockOrgs = new Map();
+const mockSessions = new Map();
 
 jest.mock("../src/models", () => {
   const bcryptLib = require("bcryptjs");
   return {
     sequelize: {},
+    Session: {
+      create: async (fields) => {
+        const id = fields.id || "s-" + (mockSessions.size + 1);
+        const session = {
+          ...fields,
+          id,
+          save: async function () {
+            mockSessions.set(this.id, this);
+            return this;
+          },
+        };
+        mockSessions.set(id, session);
+        return session;
+      },
+      findByPk: async (id) => mockSessions.get(id) || null,
+      findOne: async ({ where }) => {
+        for (const s of mockSessions.values()) {
+          if (s.id === where.id && s.userId === where.userId) return s;
+        }
+        return null;
+      },
+      findAll: async () => [...mockSessions.values()],
+      update: async (fields, { where }) => {
+        let n = 0;
+        for (const s of mockSessions.values()) {
+          if (s.userId === where.userId && s.revokedAt == null) {
+            Object.assign(s, fields);
+            n++;
+          }
+        }
+        return [n];
+      },
+    },
     User: {
       findOne: async ({ where }) => {
         for (const u of mockUsers.values()) {
@@ -31,6 +65,10 @@ jest.mock("../src/models", () => {
           save: async function () {
             mockUsers.set(this.id, this);
             return this;
+          },
+          toJSON: function () {
+            const { comparePassword, save, toJSON, ...rest } = this;
+            return rest;
           },
         };
         mockUsers.set(id, user);
@@ -70,6 +108,7 @@ describe("auth routes", () => {
   beforeEach(() => {
     mockUsers.clear();
     mockOrgs.clear();
+    mockSessions.clear();
   });
 
   test("POST /register 400 on invalid email", async () => {
