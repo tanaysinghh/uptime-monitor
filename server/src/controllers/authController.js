@@ -1,4 +1,4 @@
-const { User, Organization, Session } = require("../models");
+const { User, Organization, Session, MfaChallenge } = require("../models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { handleError } = require("../utils/errorResponse");
@@ -122,6 +122,20 @@ const login = async (req, res) => {
       await user.save();
     }
 
+    if (user.mfaEnabled) {
+      const challenge = await MfaChallenge.create({
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        ipAddress: req.ip,
+      });
+      const mfaChallengeToken = jwt.sign(
+        { userId: user.id, cid: challenge.id, typ: "mfa_challenge" },
+        process.env.JWT_SECRET,
+        { expiresIn: "5m" }
+      );
+      return res.json({ requiresMfa: true, mfaChallengeToken });
+    }
+
     await securityEvents.record({
       userId: user.id,
       organizationId: user.organizationId,
@@ -136,6 +150,79 @@ const login = async (req, res) => {
       accessToken,
       refreshToken,
     });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const mfaChallenge = async (req, res) => {
+  try {
+    const { mfaChallengeToken, code } = req.body;
+
+    let decoded;
+    try {
+      decoded = jwt.verify(mfaChallengeToken, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired MFA challenge" });
+    }
+    if (decoded.typ !== "mfa_challenge" || !decoded.cid) {
+      return res.status(401).json({ error: "Invalid MFA challenge" });
+    }
+
+    const challenge = await MfaChallenge.findByPk(decoded.cid);
+    if (!challenge || challenge.usedAt || new Date(challenge.expiresAt) < new Date()) {
+      return res.status(401).json({ error: "Invalid or expired MFA challenge" });
+    }
+
+    const user = await User.findByPk(decoded.userId, { include: [Organization] });
+    if (!user || !user.mfaEnabled || !user.mfaSecret) {
+      return res.status(401).json({ error: "Invalid MFA challenge" });
+    }
+
+    const { verifyTotp } = require("./mfaController");
+    const { decrypt } = require("../utils/mfaCrypto");
+    const backupCodes = require("../utils/backupCodes");
+
+    const cleaned = String(code || "").replace(/\s+/g, "");
+    let ok = false;
+    let usedBackupCode = false;
+
+    const isTotpFormat = /^\d{6,10}$/.test(cleaned);
+    if (isTotpFormat && verifyTotp(decrypt(user.mfaSecret), cleaned)) {
+      ok = true;
+    } else if (!isTotpFormat) {
+      const { matched, remaining } = backupCodes.consumeMatching(cleaned, user.mfaBackupCodes || []);
+      if (matched) {
+        ok = true;
+        usedBackupCode = true;
+        user.mfaBackupCodes = remaining;
+        await user.save();
+      }
+    }
+
+    if (!ok) {
+      await securityEvents.record({
+        userId: user.id,
+        organizationId: user.organizationId,
+        eventType: "mfa_challenge_failure",
+        req,
+      });
+      return res.status(401).json({ error: "Invalid code" });
+    }
+
+    challenge.usedAt = new Date();
+    await challenge.save();
+
+    await securityEvents.record({
+      userId: user.id,
+      organizationId: user.organizationId,
+      eventType: usedBackupCode ? "backup_code_used" : "mfa_challenge_success",
+      req,
+      metadata: usedBackupCode ? { remaining: user.mfaBackupCodes.length } : {},
+    });
+
+    const { accessToken, refreshToken } = await sessionService.issueSession(user, req);
+    res.json({ user: publicUser(user), accessToken, refreshToken });
   } catch (error) {
     handleError(res, error);
   }
@@ -285,6 +372,7 @@ const changePassword = async (req, res) => {
 module.exports = {
   register,
   login,
+  mfaChallenge,
   refreshToken,
   getMe,
   getSessions,

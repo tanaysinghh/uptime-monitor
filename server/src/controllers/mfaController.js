@@ -142,4 +142,4 @@ const regenerateBackupCodes = async (req, res) => {
   }
 };
 
-module.exports = { setup, verify, disable, regenerateBackupCodes };
+module.exports = { setup, verify, disable, regenerateBackupCodes, verifyTotp };

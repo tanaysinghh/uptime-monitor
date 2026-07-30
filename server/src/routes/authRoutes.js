@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   register,
   login,
+  mfaChallenge,
   refreshToken,
   getMe,
   getSessions,
@@ -24,6 +25,16 @@ const { body } = require("express-validator");
 
 router.post("/register", registerLimiter, registerValidator, validate, register);
 router.post("/login", loginLimiter, loginValidator, validate, login);
+router.post(
+  "/mfa/challenge",
+  mfaLimiter,
+  [
+    body("mfaChallengeToken").isString().notEmpty(),
+    body("code").isString().isLength({ min: 6, max: 20 }),
+  ],
+  validate,
+  mfaChallenge
+);
 router.post("/refresh-token", authLimiter, refreshValidator, validate, refreshToken);
 router.get("/me", authenticate, getMe);
 

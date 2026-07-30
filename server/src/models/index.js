@@ -11,6 +11,7 @@ const Subscriber = require("./Subscriber");
 const ApiKey = require("./ApiKey");
 const SecurityEvent = require("./SecurityEvent");
 const Session = require("./Session");
+const MfaChallenge = require("./MfaChallenge");
 
 Organization.hasMany(User, { foreignKey: "organizationId" });
 User.belongsTo(Organization, { foreignKey: "organizationId" });
@@ -71,4 +72,5 @@ module.exports = {
   ApiKey,
   SecurityEvent,
   Session,
+  MfaChallenge,
 };
