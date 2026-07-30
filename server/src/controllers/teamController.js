@@ -1,5 +1,6 @@
 const { User, Organization, AuditLog } = require("../models");
 const bcrypt = require("bcryptjs");
+const { handleError } = require("../utils/errorResponse");
 
 const getTeamMembers = async (req, res) => {
   try {
@@ -10,7 +11,7 @@ const getTeamMembers = async (req, res) => {
     });
     res.json({ members });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -56,7 +57,7 @@ const inviteMember = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -99,7 +100,7 @@ const updateMemberRole = async (req, res) => {
 
     res.json({ member: { id: member.id, email: member.email, name: member.name, role: member.role } });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -137,7 +138,7 @@ const removeMember = async (req, res) => {
     await member.destroy();
     res.json({ message: "Member removed" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -151,7 +152,7 @@ const getAuditLog = async (req, res) => {
     });
     res.json({ logs });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

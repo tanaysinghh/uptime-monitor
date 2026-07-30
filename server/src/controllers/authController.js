@@ -1,6 +1,7 @@
 const { User, Organization } = require("../models");
 const { generateAccessToken, generateRefreshToken } = require("../utils/tokens");
 const jwt = require("jsonwebtoken");
+const { handleError } = require("../utils/errorResponse");
 
 const register = async (req, res) => {
   try {
@@ -46,7 +47,7 @@ const register = async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -84,7 +85,7 @@ const login = async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -121,7 +122,7 @@ const getMe = async (req, res) => {
 
     res.json({ user });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

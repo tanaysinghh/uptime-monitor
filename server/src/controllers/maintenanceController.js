@@ -1,4 +1,5 @@
 const { Monitor, AuditLog } = require("../models");
+const { handleError } = require("../utils/errorResponse");
 
 const enableMaintenance = async (req, res) => {
   try {
@@ -33,7 +34,7 @@ const enableMaintenance = async (req, res) => {
 
     res.json({ monitor });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -68,7 +69,7 @@ const disableMaintenance = async (req, res) => {
 
     res.json({ monitor });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

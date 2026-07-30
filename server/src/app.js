@@ -16,11 +16,17 @@ const maintenanceRoutes = require("./routes/maintenanceRoutes");
 const subscriberRoutes = require("./routes/subscriberRoutes");
 
 const app = express();
+const isProd = process.env.NODE_ENV === "production";
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-app.use(morgan("dev"));
-app.use(express.json());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
+app.use(morgan(isProd ? "combined" : "dev"));
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -37,9 +43,19 @@ app.use("/api/heartbeat", heartbeatRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/public", subscriberRoutes);
 
+app.use((req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: "Something went wrong" });
+  console.error("[unhandled]", err && err.stack ? err.stack : err);
+  const status = err.status || err.statusCode || 500;
+  const message = isProd
+    ? status >= 500
+      ? "Internal server error"
+      : err.message || "Request failed"
+    : err.message || String(err);
+  res.status(status).json({ error: message });
 });
 
 module.exports = app;

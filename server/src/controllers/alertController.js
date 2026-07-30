@@ -1,4 +1,5 @@
 const { AlertChannel, AlertLog, Monitor } = require("../models");
+const { handleError } = require("../utils/errorResponse");
 
 const getChannels = async (req, res) => {
   try {
@@ -8,7 +9,7 @@ const getChannels = async (req, res) => {
     });
     res.json({ channels });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -26,7 +27,7 @@ const createChannel = async (req, res) => {
 
     res.status(201).json({ channel });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -53,7 +54,7 @@ const updateChannel = async (req, res) => {
     await channel.save();
     res.json({ channel });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -74,7 +75,7 @@ const deleteChannel = async (req, res) => {
     await channel.destroy();
     res.json({ message: "Alert channel deleted" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -141,7 +142,7 @@ const getAlertLogs = async (req, res) => {
 
     res.json({ logs });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

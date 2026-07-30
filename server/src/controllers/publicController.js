@@ -1,6 +1,7 @@
 const { Organization, Monitor, Check, Incident } = require("../models");
 const { Op } = require("sequelize");
 const sequelize = require("../config/database");
+const { handleError } = require("../utils/errorResponse");
 
 const getPublicStatus = async (req, res) => {
   try {
@@ -111,7 +112,7 @@ const getPublicStatus = async (req, res) => {
       recentIncidents,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

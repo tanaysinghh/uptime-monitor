@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { Subscriber, Organization } = require("../models");
+const { handleError } = require("../utils/errorResponse");
 
 const subscribe = async (req, res) => {
   try {
@@ -30,7 +31,7 @@ const subscribe = async (req, res) => {
 
     res.status(201).json({ message: "Subscribed successfully" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -49,7 +50,7 @@ const unsubscribe = async (req, res) => {
     await subscriber.destroy();
     res.json({ message: "Unsubscribed successfully" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -61,7 +62,7 @@ const getSubscribers = async (req, res) => {
     });
     res.json({ subscribers });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

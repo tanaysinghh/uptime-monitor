@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { Monitor, Check, Incident, Organization } = require("../models");
 const { Op } = require("sequelize");
 const { emitMonitorUpdate, emitIncidentUpdate } = require("./socketService");
+const { handleError } = require("../utils/errorResponse");
 
 const HEARTBEAT_FAILURE_THRESHOLD = 1;
 
@@ -28,7 +29,7 @@ const createHeartbeatMonitor = async (req, res) => {
       pingUrl: "/api/heartbeat/" + heartbeatToken,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -97,7 +98,7 @@ const receiveHeartbeat = async (req, res) => {
 
     res.json({ status: "ok", received: now.toISOString() });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

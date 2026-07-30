@@ -1,5 +1,6 @@
 const { Monitor, Check, Incident } = require("../models");
 const { Op } = require("sequelize");
+const { handleError } = require("../utils/errorResponse");
 
 const createMonitor = async (req, res) => {
   try {
@@ -20,7 +21,7 @@ const createMonitor = async (req, res) => {
 
     res.status(201).json({ monitor });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -33,7 +34,7 @@ const getMonitors = async (req, res) => {
 
     res.json({ monitors });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -52,7 +53,7 @@ const getMonitor = async (req, res) => {
 
     res.json({ monitor });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -84,7 +85,7 @@ const updateMonitor = async (req, res) => {
     await monitor.save();
     res.json({ monitor });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -107,7 +108,7 @@ const deleteMonitor = async (req, res) => {
 
     res.json({ message: "Monitor deleted" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -143,7 +144,7 @@ const getMonitorChecks = async (req, res) => {
 
     res.json({ checks });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -157,7 +158,7 @@ const getMonitorIncidents = async (req, res) => {
 
     res.json({ incidents });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

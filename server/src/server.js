@@ -1,10 +1,14 @@
+require("dotenv").config();
+
+const { validateEnv } = require("./config/env");
+const env = validateEnv();
+
 const http = require("http");
 const app = require("./app");
 const { sequelize } = require("./models");
 const { startScheduler } = require("./services/scheduler");
 const { initSocket } = require("./services/socketService");
 
-const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 initSocket(server);
@@ -14,13 +18,18 @@ const start = async () => {
     await sequelize.authenticate();
     console.log("Database connected");
 
-    await sequelize.sync({ alter: true });
-    console.log("Models synced");
+    if (env.isProd) {
+      await sequelize.sync();
+      console.log("Models synced (production: no schema alter)");
+    } else {
+      await sequelize.sync({ alter: true });
+      console.log("Models synced (dev: alter=true)");
+    }
 
     startScheduler();
 
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    server.listen(env.port, () => {
+      console.log(`Server running on port ${env.port} [${env.nodeEnv}]`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);

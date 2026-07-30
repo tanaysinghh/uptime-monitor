@@ -1,6 +1,7 @@
 const { Monitor, Check, Incident } = require("../models");
 const { Op } = require("sequelize");
 const sequelize = require("../config/database");
+const { handleError } = require("../utils/errorResponse");
 
 const calculatePercentile = (sortedValues, percentile) => {
   if (sortedValues.length === 0) return 0;
@@ -93,7 +94,7 @@ const getDashboardStats = async (req, res) => {
       activeIncidents,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -195,7 +196,7 @@ const getMonitorStats = async (req, res) => {
       incidents,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 

@@ -1,4 +1,5 @@
 const { ApiKey, AuditLog } = require("../models");
+const { handleError } = require("../utils/errorResponse");
 
 const getApiKeys = async (req, res) => {
   try {
@@ -9,7 +10,7 @@ const getApiKeys = async (req, res) => {
     });
     res.json({ keys });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -55,7 +56,7 @@ const createApiKey = async (req, res) => {
       key,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
@@ -91,7 +92,7 @@ const revokeApiKey = async (req, res) => {
 
     res.json({ message: "API key revoked" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error);
   }
 };
 
