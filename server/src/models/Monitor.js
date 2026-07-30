@@ -99,7 +99,13 @@ const Monitor = sequelize.define(
       allowNull: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    indexes: [
+      { fields: ["organizationId", "status"] },
+      { fields: ["monitorType", "status"] },
+    ],
+  }
 );
 
 module.exports = Monitor;

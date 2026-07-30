@@ -2,6 +2,7 @@ const { Monitor, Check, Incident } = require("../models");
 const { Op } = require("sequelize");
 const { handleError } = require("../utils/errorResponse");
 const { validateMonitorUrl } = require("../utils/ssrfGuard");
+const sequelize = require("../config/database");
 
 const createMonitor = async (req, res) => {
   try {
@@ -115,9 +116,11 @@ const deleteMonitor = async (req, res) => {
       return res.status(404).json({ error: "Monitor not found" });
     }
 
-    await Check.destroy({ where: { monitorId: monitor.id } });
-    await Incident.destroy({ where: { monitorId: monitor.id } });
-    await monitor.destroy();
+    await sequelize.transaction(async (t) => {
+      await Check.destroy({ where: { monitorId: monitor.id }, transaction: t });
+      await Incident.destroy({ where: { monitorId: monitor.id }, transaction: t });
+      await monitor.destroy({ transaction: t });
+    });
 
     res.json({ message: "Monitor deleted" });
   } catch (error) {

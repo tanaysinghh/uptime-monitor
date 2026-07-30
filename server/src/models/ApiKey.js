@@ -47,7 +47,13 @@ const ApiKey = sequelize.define(
       defaultValue: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    indexes: [
+      { fields: ["keyHash"], unique: true },
+      { fields: ["organizationId"] },
+    ],
+  }
 );
 
 ApiKey.generateKey = () => {

@@ -38,7 +38,13 @@ const AuditLog = sequelize.define(
       allowNull: true,
     },
   },
-  { timestamps: true, updatedAt: false }
+  {
+    timestamps: true,
+    updatedAt: false,
+    indexes: [
+      { fields: ["organizationId", "createdAt"] },
+    ],
+  }
 );
 
 module.exports = AuditLog;

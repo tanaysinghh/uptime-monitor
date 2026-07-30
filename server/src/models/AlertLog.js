@@ -38,7 +38,12 @@ const AlertLog = sequelize.define(
       defaultValue: DataTypes.NOW,
     },
   },
-  { timestamps: false }
+  {
+    timestamps: false,
+    indexes: [
+      { fields: ["monitorId", "sentAt"] },
+    ],
+  }
 );
 
 module.exports = AlertLog;

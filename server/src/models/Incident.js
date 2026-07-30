@@ -35,7 +35,13 @@ const Incident = sequelize.define(
       allowNull: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    indexes: [
+      { fields: ["monitorId", "status"] },
+      { fields: ["monitorId", "startedAt"] },
+    ],
+  }
 );
 
 module.exports = Incident;

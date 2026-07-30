@@ -34,7 +34,13 @@ const Check = sequelize.define(
       defaultValue: DataTypes.NOW,
     },
   },
-  { timestamps: false }
+  {
+    timestamps: false,
+    indexes: [
+      { fields: ["monitorId", "checkedAt"] },
+      { fields: ["checkedAt"] },
+    ],
+  }
 );
 
 module.exports = Check;
