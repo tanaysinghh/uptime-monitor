@@ -11,8 +11,22 @@ const baseOptions = {
 const authLimiter = rateLimit({
   ...baseOptions,
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 20,
   message: { error: "Too many auth attempts. Try again in 15 minutes." },
+});
+
+const loginLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many login attempts from this IP. Try again in 15 minutes." },
+});
+
+const mfaLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many MFA attempts. Try again in 5 minutes." },
 });
 
 const registerLimiter = rateLimit({
@@ -44,6 +58,8 @@ const subscribeLimiter = rateLimit({
 
 module.exports = {
   authLimiter,
+  loginLimiter,
+  mfaLimiter,
   registerLimiter,
   heartbeatLimiter,
   publicLimiter,

@@ -2,6 +2,7 @@ const { User, Organization } = require("../models");
 const { generateAccessToken, generateRefreshToken } = require("../utils/tokens");
 const jwt = require("jsonwebtoken");
 const { handleError } = require("../utils/errorResponse");
+const logger = require("../utils/logger");
 
 const register = async (req, res) => {
   try {
@@ -51,6 +52,10 @@ const register = async (req, res) => {
   }
 };
 
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+const GENERIC_LOGIN_FAILURE = { error: "Invalid credentials" };
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -61,12 +66,37 @@ const login = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json(GENERIC_LOGIN_FAILURE);
+    }
+
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      logger.warn("login blocked by lockout", {
+        userId: user.id,
+        ip: req.ip,
+        lockedUntil: user.lockedUntil,
+      });
+      return res.status(401).json(GENERIC_LOGIN_FAILURE);
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+      if (user.failedLoginAttempts >= LOCKOUT_THRESHOLD) {
+        user.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+        logger.warn("account locked", {
+          userId: user.id,
+          ip: req.ip,
+          attempts: user.failedLoginAttempts,
+        });
+      }
+      await user.save();
+      return res.status(401).json(GENERIC_LOGIN_FAILURE);
+    }
+
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+      await user.save();
     }
 
     const accessToken = generateAccessToken(user.id);

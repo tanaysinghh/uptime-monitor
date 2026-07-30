@@ -23,8 +23,14 @@ jest.mock("../src/models", () => {
           id,
           password,
           role: fields.role || "admin",
+          failedLoginAttempts: 0,
+          lockedUntil: null,
           comparePassword: async function (candidate) {
             return bcryptLib.compare(candidate, this.password);
+          },
+          save: async function () {
+            mockUsers.set(this.id, this);
+            return this;
           },
         };
         mockUsers.set(id, user);
