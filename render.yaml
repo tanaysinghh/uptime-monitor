@@ -73,7 +73,6 @@ services:
   - type: web
     name: uptime-monitor-client
     runtime: static
-    plan: free
     buildCommand: cd client && npm ci && npm run build
     staticPublishPath: ./client/dist
     routes:
