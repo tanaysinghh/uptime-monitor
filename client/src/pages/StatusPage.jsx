@@ -2,67 +2,22 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { motion, useReducedMotion } from "framer-motion";
+import { UptimeStrip } from "../components/ui/UptimeStrip";
+import { StatusDot } from "../components/ui/StatusDot";
+import { LivePulse } from "../components/ui/LivePulse";
+import { Button } from "../components/ui/button";
+import { Field, Input } from "../components/ui/Field";
+import { Loading, ErrorState, Empty } from "../components/ui/States";
+import { Brandmark } from "../components/ui/Brand";
 import {
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Clock,
-  Activity,
-  Mail,
-  Wrench,
+  CheckCircle2, XCircle, AlertTriangle, Clock, Mail, Activity,
 } from "lucide-react";
 
-const statusLabels = {
-  operational: { label: "All Systems Operational", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", icon: CheckCircle },
-  partial_outage: { label: "Partial System Outage", color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20", icon: AlertTriangle },
-  major_outage: { label: "Major System Outage", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", icon: XCircle },
-};
-
-const UptimeBar = ({ uptimeDays, overallUptime }) => {
-  const last90Days = [];
-  for (let i = 89; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toISOString().split("T")[0];
-    const dayData = uptimeDays.find((d) => d.date === dateStr);
-    last90Days.push({
-      date: dateStr,
-      uptime: dayData ? dayData.uptimePercentage : -1,
-    });
-  }
-
-  const getBarColor = (uptime) => {
-    if (uptime === -1) return "bg-gray-700";
-    if (uptime >= 99) return "bg-emerald-500";
-    if (uptime >= 95) return "bg-yellow-500";
-    if (uptime >= 90) return "bg-orange-500";
-    return "bg-red-500";
-  };
-
-  return (
-    <div>
-      <div className="flex gap-[2px]">
-        {last90Days.map((day, i) => (
-          <div key={i} className="group relative flex-1">
-            <div className={"h-8 rounded-[2px] transition-opacity hover:opacity-80 " + getBarColor(day.uptime)} />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-              <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg">
-                <p className="font-medium">{day.date}</p>
-                <p className="text-gray-400">
-                  {day.uptime === -1 ? "No data" : day.uptime + "% uptime"}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-between mt-2 text-xs text-gray-500">
-        <span>90 days ago</span>
-        <span>{overallUptime}% uptime</span>
-        <span>Today</span>
-      </div>
-    </div>
-  );
+const overallConf = {
+  operational:    { label: "All systems operational",  Icon: CheckCircle2,  wash: "bg-st-up-wash",        color: "text-st-up",       accent: "border-st-up" },
+  partial_outage: { label: "Partial system outage",    Icon: AlertTriangle, wash: "bg-st-degraded-wash",  color: "text-st-degraded", accent: "border-st-degraded" },
+  major_outage:   { label: "Major system outage",      Icon: XCircle,       wash: "bg-st-down-wash",      color: "text-st-down",     accent: "border-st-down" },
 };
 
 const StatusPage = () => {
@@ -72,19 +27,21 @@ const StatusPage = () => {
   const [error, setError] = useState(null);
   const [subEmail, setSubEmail] = useState("");
   const [subLoading, setSubLoading] = useState(false);
+  const [pulseTrigger, setPulseTrigger] = useState(0);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
         const response = await axios.get("/api/public/status/" + slug);
         setData(response.data);
+        setPulseTrigger((n) => n + 1);
       } catch (err) {
         setError(err.response?.status === 404 ? "Status page not found" : "Failed to load status");
       } finally {
         setLoading(false);
       }
     };
-
     fetchStatus();
     const interval = setInterval(fetchStatus, 60000);
     return () => clearInterval(interval);
@@ -95,7 +52,7 @@ const StatusPage = () => {
     setSubLoading(true);
     try {
       await axios.post("/api/public/status/" + slug + "/subscribe", { email: subEmail });
-      toast.success("Subscribed! You'll receive incident notifications.");
+      toast.success("Subscribed — you'll receive incident notifications");
       setSubEmail("");
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to subscribe");
@@ -106,144 +63,180 @@ const StatusPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <Loading label="Loading status" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">
-        <div className="text-center">
-          <XCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
-          <p className="text-xl">{error}</p>
+      <div className="min-h-screen bg-paper flex items-center justify-center px-6">
+        <div className="max-w-md w-full">
+          <ErrorState title={error} description="This status page may have been renamed or moved." />
         </div>
       </div>
     );
   }
 
-  const statusConfig = statusLabels[data.overallStatus] || statusLabels.operational;
-  const StatusIcon = statusConfig.icon;
+  const overall = overallConf[data.overallStatus] || overallConf.operational;
+  const { Icon: OverallIcon } = overall;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <div className="max-w-3xl mx-auto px-4 py-12">
-        <div className="text-center mb-10">
-          {data.organization.logoUrl ? (
-            <img src={data.organization.logoUrl} alt={data.organization.name} className="h-10 mx-auto mb-4" />
-          ) : (
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Activity className="w-8 h-8" style={{ color: data.organization.brandColor }} />
-              <span className="text-2xl font-bold">{data.organization.name}</span>
-            </div>
-          )}
-        </div>
-
-        <div className={"rounded-xl p-6 mb-8 flex items-center gap-4 " + statusConfig.bg + " border " + statusConfig.border}>
-          <StatusIcon className={"w-8 h-8 " + statusConfig.color} />
-          <div>
-            <p className={"text-xl font-semibold " + statusConfig.color}>{statusConfig.label}</p>
-            <p className="text-sm text-gray-400 mt-1">Last updated: {new Date().toLocaleString()}</p>
+    <div className="min-h-screen bg-paper text-ink">
+      {/* Top bar */}
+      <header className="hairline-b sticky top-0 bg-paper/95 backdrop-blur z-10">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {data.organization.logoUrl ? (
+              <img src={data.organization.logoUrl} alt={data.organization.name} className="h-6" />
+            ) : (
+              <Brandmark size={20} />
+            )}
+            <span className="font-display text-lg leading-none">{data.organization.name}</span>
           </div>
+          <LivePulse trigger={pulseTrigger} label="LIVE" />
         </div>
+      </header>
 
+      <main className="max-w-4xl mx-auto px-6 py-12 md:py-20">
+        {/* Hero — enormous overall status */}
+        <motion.section
+          initial={reduce ? {} : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, ease: [0.25, 1, 0.5, 1] }}
+          className="mb-16"
+        >
+          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-4">
+            Status · {new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+          </div>
+          <div className={"flex items-start gap-5 " + overall.color}>
+            <OverallIcon className="w-10 h-10 shrink-0 mt-1" strokeWidth={1.5} />
+            <h1 className={"font-display text-3xl md:text-[64px] leading-none " + overall.color}>
+              {overall.label}.
+            </h1>
+          </div>
+          <p className="text-sm font-num uppercase tracking-wider text-muted mt-6">
+            Last checked · {new Date().toLocaleTimeString()}
+          </p>
+        </motion.section>
+
+        {/* Active incidents */}
         {data.activeIncidents.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-              Active Incidents
+          <section className="mb-12">
+            <h2 className="font-display text-xl italic text-ink mb-4 flex items-center gap-3">
+              <AlertTriangle className="w-4 h-4 text-st-down" strokeWidth={1.8} />
+              Active incidents
             </h2>
-            <div className="space-y-3">
-              {data.activeIncidents.map((incident) => (
-                <div key={incident.id} className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+            <div className="hairline bg-st-down-wash">
+              {data.activeIncidents.map((incident, i) => (
+                <div key={incident.id} className={"px-5 py-4 " + (i > 0 ? "hairline-t" : "")}>
                   <div className="flex items-center justify-between">
-                    <p className="font-medium">{incident.Monitor?.name}</p>
-                    <span className="text-xs text-red-400 capitalize px-2 py-1 bg-red-500/10 rounded-full">{incident.status}</span>
+                    <p className="text-sm text-ink font-medium">{incident.Monitor?.name}</p>
+                    <span className="text-[10px] font-num uppercase tracking-wider text-st-down capitalize">
+                      {incident.status}
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                  <p className="text-xs font-num text-muted mt-1 inline-flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" strokeWidth={2} />
                     Started {new Date(incident.startedAt).toLocaleString()}
                   </p>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="space-y-6">
-          {data.monitors.map((monitor) => (
-            <div key={monitor.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="font-medium">{monitor.name}</span>
-                </div>
-                <span className={
-                  "text-sm font-medium " +
-                  (monitor.status === "up" ? "text-emerald-400" : monitor.status === "down" ? "text-red-400" : "text-gray-400")
-                }>
-                  {monitor.status === "up" ? "Operational" : monitor.status === "down" ? "Down" : "Pending"}
-                </span>
-              </div>
-              <UptimeBar uptimeDays={monitor.uptimeDays} overallUptime={monitor.overallUptime} />
+        {/* Services */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-xl italic text-ink">Services</h2>
+            <span className="text-[10px] font-num uppercase tracking-wider text-muted">
+              90-day uptime
+            </span>
+          </div>
+          {data.monitors.length === 0 ? (
+            <Empty icon={Activity} title="No services configured yet." />
+          ) : (
+            <div className="space-y-8">
+              {data.monitors.map((monitor, i) => (
+                <motion.div
+                  key={monitor.id}
+                  initial={reduce ? {} : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.24, delay: reduce ? 0 : i * 0.03, ease: [0.25, 1, 0.5, 1] }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <StatusDot status={monitor.status} size="md" />
+                      <span className="text-base text-ink">{monitor.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-num text-sm text-ink">{monitor.overallUptime}%</div>
+                      <div className="text-[10px] font-num uppercase tracking-wider text-muted">
+                        {monitor.status === "up" ? "Operational" : monitor.status === "down" ? "Down" : "Pending"}
+                      </div>
+                    </div>
+                  </div>
+                  <UptimeStrip uptimeDays={monitor.uptimeDays || []} size="md" days={90} />
+                </motion.div>
+              ))}
             </div>
-          ))}
-          {data.monitors.length === 0 && (
-            <div className="text-center py-12 text-gray-500">No monitors configured</div>
           )}
-        </div>
+        </section>
 
+        {/* Past incidents */}
         {data.recentIncidents.length > 0 && (
-          <div className="mt-10">
-            <h2 className="text-lg font-semibold mb-4">Past Incidents</h2>
-            <div className="space-y-3">
-              {data.recentIncidents.map((incident) => (
-                <div key={incident.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{incident.Monitor?.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(incident.startedAt).toLocaleDateString()} — resolved in{" "}
+          <section className="mb-12">
+            <h2 className="font-display text-xl italic text-ink mb-4">Past incidents</h2>
+            <div className="hairline bg-paper">
+              {data.recentIncidents.map((incident, i) => (
+                <div key={incident.id} className={"flex items-center justify-between px-5 py-3 " + (i > 0 ? "hairline-t" : "")}>
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink truncate">{incident.Monitor?.name}</p>
+                    <p className="text-[11px] font-num uppercase tracking-wider text-muted">
+                      {new Date(incident.startedAt).toLocaleDateString()} · resolved in{" "}
                       {incident.durationSeconds
                         ? Math.floor(incident.durationSeconds / 60) + "m " + (incident.durationSeconds % 60) + "s"
-                        : "N/A"}
+                        : "n/a"}
                     </p>
                   </div>
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-st-up shrink-0" strokeWidth={1.8} />
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="mt-10 bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Mail className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-semibold">Subscribe to updates</h3>
+        {/* Subscribe */}
+        <section className="hairline bg-paper p-6 md:p-8 mb-12">
+          <div className="flex items-center gap-2 mb-2 text-muted">
+            <Mail className="w-4 h-4" strokeWidth={1.8} />
+            <span className="text-[10px] font-num uppercase tracking-[0.15em]">Notifications</span>
           </div>
-          <p className="text-sm text-gray-400 mb-4">Get notified when services go down or recover.</p>
-          <form onSubmit={handleSubscribe} className="flex gap-3">
-            <input
-              type="email"
-              value={subEmail}
-              onChange={(e) => setSubEmail(e.target.value)}
-              required
-              placeholder="you@example.com"
-              className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <button
-              type="submit"
-              disabled={subLoading}
-              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white rounded-lg transition-colors"
-            >
-              {subLoading ? "..." : "Subscribe"}
-            </button>
+          <h3 className="font-display text-2xl text-ink mb-2">Get notified.</h3>
+          <p className="text-sm text-muted mb-5 max-w-md">
+            One email when a service goes down. One when it recovers. Nothing else.
+          </p>
+          <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
+            <Field className="flex-1" htmlFor="sub-email">
+              <Input
+                id="sub-email"
+                type="email"
+                value={subEmail}
+                onChange={(e) => setSubEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+              />
+            </Field>
+            <Button type="submit" disabled={subLoading}>{subLoading ? "…" : "Subscribe"}</Button>
           </form>
-        </div>
+        </section>
 
-        <div className="text-center mt-12 text-sm text-gray-600">
-          Powered by <span className="text-gray-400 font-medium">UptimeMonitor</span>
-        </div>
-      </div>
+        <footer className="text-[10px] font-num uppercase tracking-[0.15em] text-muted text-center">
+          Powered by <span className="text-ink">Uptime Monitor</span>
+        </footer>
+      </main>
     </div>
   );
 };

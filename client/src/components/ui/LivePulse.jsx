@@ -1,22 +1,16 @@
-import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion, motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 
 /**
  * A small "live" indicator: labeled dot in --pulse orange.
  * When `trigger` value changes, the dot does a single scale+opacity pulse.
+ * The `trigger` value itself is used as the animation key so each change
+ * remounts the motion element — no effect / setState needed.
  *
- * Respects prefers-reduced-motion: shows a static ring instead of animating.
+ * Respects prefers-reduced-motion: shows a static dot only, no animation.
  */
 export const LivePulse = ({ trigger = 0, label = "LIVE", className }) => {
   const reduce = useReducedMotion();
-  const [pulseKey, setPulseKey] = useState(0);
-  const firstRun = useRef(true);
-
-  useEffect(() => {
-    if (firstRun.current) { firstRun.current = false; return; }
-    setPulseKey((k) => k + 1);
-  }, [trigger]);
 
   return (
     <span
@@ -30,7 +24,7 @@ export const LivePulse = ({ trigger = 0, label = "LIVE", className }) => {
         <span className="absolute inset-0 rounded-full bg-pulse" />
         {!reduce && (
           <motion.span
-            key={pulseKey}
+            key={trigger}
             initial={{ scale: 1, opacity: 0.7 }}
             animate={{ scale: 2.6, opacity: 0 }}
             transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}

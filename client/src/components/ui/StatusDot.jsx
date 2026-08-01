@@ -41,4 +41,5 @@ export const StatusLabel = ({ status = "pending", className }) => {
   return <span className={cn("text-xs font-medium uppercase tracking-wider", textColor, className)}>{conf.label}</span>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { statusMap };

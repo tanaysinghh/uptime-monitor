@@ -1,129 +1,84 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { GetStartedButton } from "../components/ui/GetStartedButton";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Button } from "../components/ui/button";
+import { UptimeStrip } from "../components/ui/UptimeStrip";
+import { StatusDot } from "../components/ui/StatusDot";
+import { LivePulse } from "../components/ui/LivePulse";
+import { Brandmark, Wordmark } from "../components/ui/Brand";
 import {
-  Activity,
-  Zap,
-  Shield,
-  Globe,
-  BarChart3,
-  Bell,
-  Clock,
-  Users,
-  Key,
-  Wrench,
-  CheckCircle,
-  XCircle,
-  ChevronDown,
-  ArrowRight,
-  Star,
-  Sparkles,
-  Layers,
-  Terminal,
-  HeartPulse,
-  Menu,
-  X,
+  ArrowRight, Zap, Shield, Globe, BarChart3, Bell, Clock,
+  Users, Key, Wrench, CheckCircle2, XCircle, ChevronDown,
+  Terminal, HeartPulse, Menu, X, Layers, ArrowUpRight,
 } from "lucide-react";
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
-};
-
-function Navbar() {
+// ==============================================================
+// Nav
+// ==============================================================
+function Nav() {
   const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   const links = [
-    { href: "#features", label: "Features" },
-    { href: "#how-it-works", label: "How It Works" },
-    { href: "#pricing", label: "Pricing" },
-    { href: "#faq", label: "FAQ" },
+    { href: "#features",     label: "Features" },
+    { href: "#how-it-works", label: "How it works" },
+    { href: "#pricing",      label: "Pricing" },
+    { href: "#faq",          label: "FAQ" },
   ];
 
   return (
     <nav
       className={
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 " +
-        (scrolled
-          ? "bg-gray-950/80 backdrop-blur-xl border-b border-gray-800/50 shadow-lg shadow-black/20"
-          : "bg-transparent")
+        "fixed top-0 left-0 right-0 z-50 transition-colors " +
+        (scrolled ? "bg-paper/95 backdrop-blur hairline-b" : "bg-transparent")
       }
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          <Link to="/" className="flex items-center gap-2">
-            <Activity className="w-7 h-7 text-emerald-500" />
-            <span className="text-lg font-bold text-white">UptimeMonitor</span>
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="flex items-center justify-between h-16">
+          <Link to="/" className="flex items-center">
+            <Wordmark />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
-            {links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                {link.label}
+            {links.map((l) => (
+              <a key={l.href} href={l.href} className="text-sm text-muted hover:text-ink transition-colors">
+                {l.label}
               </a>
             ))}
           </div>
 
-          <div className="hidden md:flex items-center gap-3">
-            <Link
-              to="/login"
-              className="text-sm text-gray-400 hover:text-white px-4 py-2 transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link to="/register">
-              <GetStartedButton>Get Started Free</GetStartedButton>
-            </Link>
+          <div className="hidden md:flex items-center gap-2">
+            <Button variant="text" size="sm" asChild><Link to="/login">Sign in</Link></Button>
+            <Button size="sm" asChild><Link to="/register">Start free <ArrowRight className="w-3.5 h-3.5" strokeWidth={2} /></Link></Button>
           </div>
 
           <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 text-gray-400 hover:text-white"
+            onClick={() => setOpen((o) => !o)}
+            className="md:hidden p-2 text-ink"
+            aria-label={open ? "Close menu" : "Open menu"}
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className="md:hidden pb-6 space-y-4"
-          >
-            {links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="block text-sm text-gray-400 hover:text-white py-2"
-              >
-                {link.label}
-              </a>
-            ))}
-            <div className="flex flex-col gap-3 pt-4 border-t border-gray-800">
-              <Link to="/login" className="text-sm text-gray-400 hover:text-white py-2">
-                Sign In
-              </Link>
-              <Link to="/register">
-                <GetStartedButton className="w-full justify-center">Get Started Free</GetStartedButton>
-              </Link>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} className="md:hidden pb-6">
+            <div className="flex flex-col gap-1 hairline-t pt-3">
+              {links.map((l) => (
+                <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="text-sm text-muted hover:text-ink py-2">
+                  {l.label}
+                </a>
+              ))}
+              <div className="flex gap-2 pt-3">
+                <Button variant="ghost" size="sm" asChild className="flex-1 justify-center"><Link to="/login">Sign in</Link></Button>
+                <Button size="sm" asChild className="flex-1 justify-center"><Link to="/register">Start free</Link></Button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -132,458 +87,172 @@ function Navbar() {
   );
 }
 
-function HeroSection() {
-  return (
-    <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-      <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-gray-950" />
-      </div>
+// ==============================================================
+// Hero
+// ==============================================================
+function Hero() {
+  const reduce = useReducedMotion();
+  const [pulseTrigger, setPulseTrigger] = useState(0);
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-20">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={staggerContainer}
-          >
+  // Fake but plausible uptime data — one small dip 30d ago, one degraded window 8d ago.
+  const uptimeSeed = useMemo(() => Array.from({ length: 90 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (89 - i));
+    const iso = d.toISOString().split("T")[0];
+    let pct = 100;
+    if (i === 60) pct = 91;
+    if (i === 82) pct = 96;
+    if (i === 83) pct = 97;
+    return { date: iso, uptimePercentage: pct };
+  }), []);
+
+  // Fake live check every 4s to demo the pulse
+  useEffect(() => {
+    if (reduce) return;
+    const t = setInterval(() => setPulseTrigger((n) => n + 1), 4000);
+    return () => clearInterval(t);
+  }, [reduce]);
+
+  return (
+    <section className="relative pt-32 pb-20 md:pt-40 md:pb-28">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid lg:grid-cols-12 gap-12 items-end">
+          <div className="lg:col-span-7">
             <motion.div
-              variants={fadeInUp}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm text-emerald-400 mb-6"
+              initial={reduce ? {} : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
+              className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-6"
             >
-              <Sparkles className="w-4 h-4" />
-              Trusted by developers worldwide
+              An engineering instrument · v1.0
             </motion.div>
 
             <motion.h1
-              variants={fadeInUp}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight"
+              initial={reduce ? {} : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.06 }}
+              className="font-display leading-[0.98] text-ink text-[44px] sm:text-[64px] lg:text-[88px]"
             >
-              Never Miss a
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400"> Downtime </span>
-              Again
+              Watch your
+              <br />
+              <em className="text-ink">services breathe</em>.
             </motion.h1>
 
             <motion.p
-              variants={fadeInUp}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-lg text-gray-400 mt-6 max-w-lg leading-relaxed"
+              initial={reduce ? {} : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.12 }}
+              className="text-base text-muted mt-8 max-w-lg leading-relaxed"
             >
-              Monitor your APIs, websites, and cron jobs every 30 seconds. Get instant alerts on Slack, Discord, or webhooks. Share beautiful status pages with your users.
+              30-second checks. p95/p99 latency. Sharp public status pages. Alerts that fire only when they should.
+              Built like an instrument, not a dashboard.
             </motion.p>
 
             <motion.div
-              variants={fadeInUp}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-wrap gap-4 mt-8"
+              initial={reduce ? {} : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.18 }}
+              className="mt-10 flex flex-wrap items-center gap-3"
             >
-              <Link to="/register">
-                <GetStartedButton>Start Monitoring Free</GetStartedButton>
-              </Link>
-              <a
-                href="#how-it-works"
-                className="inline-flex items-center gap-2 px-6 py-3 text-gray-300 hover:text-white border border-gray-700 hover:border-gray-600 rounded-lg transition-all duration-300 hover:-translate-y-0.5"
-              >
-                See How It Works
-                <ArrowRight className="w-4 h-4" />
-              </a>
+              <Button size="lg" asChild>
+                <Link to="/register">Start monitoring — free <ArrowRight className="w-4 h-4" strokeWidth={2} /></Link>
+              </Button>
+              <Button variant="ghost" size="lg" asChild>
+                <a href="#how-it-works">See how it works</a>
+              </Button>
             </motion.div>
 
             <motion.div
-              variants={fadeInUp}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="flex items-center gap-6 mt-10 text-sm text-gray-500"
+              initial={reduce ? {} : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.28 }}
+              className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[11px] font-num uppercase tracking-wider text-muted"
             >
-              <span className="flex items-center gap-1"><CheckCircle className="w-4 h-4 text-emerald-500" /> No credit card</span>
-              <span className="flex items-center gap-1"><CheckCircle className="w-4 h-4 text-emerald-500" /> 30-second checks</span>
-              <span className="flex items-center gap-1"><CheckCircle className="w-4 h-4 text-emerald-500" /> Unlimited monitors</span>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-st-up" strokeWidth={2} /> No credit card</span>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-st-up" strokeWidth={2} /> 30s checks</span>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-st-up" strokeWidth={2} /> Open source</span>
             </motion.div>
-          </motion.div>
+          </div>
 
+          {/* Live demo card — not a fake browser screenshot, an actual UptimeStrip. */}
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
+            initial={reduce ? {} : { opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="hidden lg:block"
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 1, 0.5, 1] }}
+            className="lg:col-span-5"
           >
-            <div className="relative">
-              <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 rounded-2xl blur-xl" />
-              <div className="relative bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="text-xs text-gray-500 ml-2">UptimeMonitor Dashboard</span>
+            <div className="hairline bg-paper p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <div className="text-[10px] font-num uppercase tracking-[0.15em] text-muted">Production API</div>
+                  <div className="font-num text-lg text-ink mt-0.5">api.example.com/health</div>
                 </div>
-                <div className="space-y-3">
-                  {[
-                    { name: "Production API", status: "up", time: "45ms", uptime: "99.99%" },
-                    { name: "Payment Service", status: "up", time: "120ms", uptime: "99.95%" },
-                    { name: "Auth Server", status: "up", time: "38ms", uptime: "100%" },
-                    { name: "CDN Endpoint", status: "down", time: "—", uptime: "98.2%" },
-                    { name: "Database Backup", status: "up", time: "210ms", uptime: "99.8%" },
-                  ].map((item, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 + i * 0.1 }}
-                      className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={"w-2 h-2 rounded-full " + (item.status === "up" ? "bg-emerald-500" : "bg-red-500")} />
-                        <span className="text-sm text-gray-300">{item.name}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{item.time}</span>
-                        <span className={item.status === "up" ? "text-emerald-400" : "text-red-400"}>{item.uptime}</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                <LivePulse trigger={pulseTrigger} />
               </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SocialProof() {
-  const stats = [
-    { value: "10M+", label: "Health checks performed" },
-    { value: "99.9%", label: "Platform uptime" },
-    { value: "30s", label: "Check intervals" },
-    { value: "500+", label: "Monitors tracked" },
-  ];
-
-  return (
-    <section className="relative py-16 border-y border-gray-800/50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              viewport={{ once: true }}
-              className="text-center"
-            >
-              <p className="text-3xl font-bold text-white">{stat.value}</p>
-              <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ProblemSolution() {
-  const oldWay = [
-    { icon: XCircle, text: "Manually checking if services are running" },
-    { icon: XCircle, text: "Finding out about outages from angry users" },
-    { icon: XCircle, text: "No visibility into response time degradation" },
-    { icon: XCircle, text: "Scattered monitoring across multiple tools" },
-  ];
-
-  const newWay = [
-    { icon: CheckCircle, text: "Automated checks every 30 seconds" },
-    { icon: CheckCircle, text: "Instant alerts before users notice" },
-    { icon: CheckCircle, text: "p95/p99 latency tracking in real-time" },
-    { icon: CheckCircle, text: "One dashboard for all your services" },
-  ];
-
-  return (
-    <section className="py-24">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">There's a Better Way</h2>
-          <p className="text-gray-400 mt-4 max-w-2xl mx-auto">Stop firefighting outages. Start preventing them.</p>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="bg-gray-900/50 border border-gray-800 rounded-2xl p-8"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full text-sm text-red-400 mb-6">
-              <XCircle className="w-4 h-4" />
-              The Old Way
-            </div>
-            <div className="space-y-4">
-              {oldWay.map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <item.icon className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
-                  <span className="text-gray-400">{item.text}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 border border-emerald-500/20 rounded-2xl p-8"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm text-emerald-400 mb-6">
-              <CheckCircle className="w-4 h-4" />
-              The UptimeMonitor Way
-            </div>
-            <div className="space-y-4">
-              {newWay.map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <item.icon className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
-                  <span className="text-gray-300">{item.text}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FeaturesSection() {
-  const features = [
-    { icon: Zap, title: "30-Second Health Checks", description: "Monitor every endpoint at blazing speed. Know about issues before your users do." },
-    { icon: HeartPulse, title: "Heartbeat Monitoring", description: "Dead man's switch for cron jobs. If your job doesn't ping in, we alert you instantly." },
-    { icon: Shield, title: "SSL Certificate Tracking", description: "Automatic SSL expiry detection. Get warned 14 days before certificates expire." },
-    { icon: Globe, title: "Public Status Pages", description: "Branded, shareable status pages with 90-day uptime bars and incident history." },
-    { icon: Bell, title: "Multi-Channel Alerts", description: "Slack, Discord, webhooks, and email. Get notified wherever your team works." },
-    { icon: BarChart3, title: "p95/p99 Latency Metrics", description: "Go beyond averages. Track percentile latencies that reveal real user experience." },
-    { icon: Terminal, title: "Response Assertions", description: "Validate response bodies with JSON path checks, string matching, and status codes." },
-    { icon: Wrench, title: "Maintenance Windows", description: "Schedule downtime without false alerts. Status page shows maintenance, not outages." },
-    { icon: Users, title: "Team Management", description: "Invite members with role-based access. Full audit log of every action taken." },
-    { icon: Key, title: "API Key Access", description: "Manage monitors programmatically. SHA-256 hashed keys with granular permissions." },
-    { icon: Layers, title: "Incident Timeline", description: "Auto-created incidents after consecutive failures. Auto-resolved on recovery." },
-    { icon: Clock, title: "Data Retention", description: "90 days of check history with automatic cleanup. No manual maintenance needed." },
-  ];
-
-  return (
-    <section id="features" className="py-24">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">
-            Everything You Need to Stay Online
-          </h2>
-          <p className="text-gray-400 mt-4 max-w-2xl mx-auto">
-            A complete monitoring platform with real-time alerts, analytics, and team collaboration built in.
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={staggerContainer}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {features.map((feature, i) => {
-            const Icon = feature.icon;
-            return (
-              <motion.div
-                key={i}
-                variants={fadeInUp}
-                transition={{ duration: 0.5 }}
-                className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-emerald-500/30 hover:bg-gray-900/80 transition-all duration-300"
-              >
-                <div className="p-3 bg-emerald-500/10 rounded-lg w-fit mb-4 group-hover:bg-emerald-500/20 transition-colors">
-                  <Icon className="w-5 h-5 text-emerald-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
-              </motion.div>
-            );
-          })}
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-function HowItWorks() {
-  const steps = [
-    {
-      number: "01",
-      title: "Add Your Endpoints",
-      description: "Enter the URLs you want to monitor. Configure check intervals, expected status codes, and response assertions.",
-      icon: Terminal,
-    },
-    {
-      number: "02",
-      title: "We Monitor 24/7",
-      description: "Our engine pings your services every 30 seconds. SSL certs are checked, response bodies are validated, latency is tracked.",
-      icon: Activity,
-    },
-    {
-      number: "03",
-      title: "Stay Informed Instantly",
-      description: "Get alerts on Slack, Discord, or webhooks the moment something goes wrong. Share a public status page with your users.",
-      icon: Bell,
-    },
-  ];
-
-  return (
-    <section id="how-it-works" className="py-24 bg-gray-900/30">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">How It Works</h2>
-          <p className="text-gray-400 mt-4">Three simple steps to complete monitoring coverage</p>
-        </motion.div>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          {steps.map((step, i) => {
-            const Icon = step.icon;
-            return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.2, duration: 0.6 }}
-                viewport={{ once: true }}
-                className="relative text-center"
-              >
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mb-6">
-                  <Icon className="w-7 h-7 text-emerald-400" />
-                </div>
-                <div className="text-xs font-bold text-emerald-500 mb-2">STEP {step.number}</div>
-                <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{step.description}</p>
-                {i < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-8 left-[60%] w-[80%] border-t border-dashed border-gray-800" />
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PricingSection() {
-  const plans = [
-    {
-      name: "Starter",
-      price: "Free",
-      period: "",
-      description: "Perfect for side projects",
-      features: ["5 monitors", "5-minute checks", "1 alert channel", "Public status page", "7-day data retention"],
-      cta: "Get Started",
-      highlighted: false,
-    },
-    {
-      name: "Pro",
-      price: "$19",
-      period: "/month",
-      description: "For growing teams",
-      features: ["50 monitors", "30-second checks", "Unlimited alert channels", "Public status page", "90-day data retention", "Team management (5 seats)", "API access", "Heartbeat monitoring"],
-      cta: "Start Free Trial",
-      highlighted: true,
-    },
-    {
-      name: "Enterprise",
-      price: "Custom",
-      period: "",
-      description: "For large organizations",
-      features: ["Unlimited monitors", "30-second checks", "Unlimited alert channels", "Custom branded status page", "1-year data retention", "Unlimited team seats", "Full API access", "Priority support", "SLA guarantees"],
-      cta: "Contact Sales",
-      highlighted: false,
-    },
-  ];
-
-  return (
-    <section id="pricing" className="py-24">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">Simple, Transparent Pricing</h2>
-          <p className="text-gray-400 mt-4">Start free. Upgrade when you need more.</p>
-        </motion.div>
-
-        <div className="grid md:grid-cols-3 gap-8 items-start">
-          {plans.map((plan, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.15, duration: 0.6 }}
-              viewport={{ once: true }}
-              className={
-                "relative rounded-2xl p-8 " +
-                (plan.highlighted
-                  ? "bg-gradient-to-b from-emerald-500/10 to-gray-900 border-2 border-emerald-500/30 shadow-lg shadow-emerald-500/5"
-                  : "bg-gray-900/50 border border-gray-800")
-              }
-            >
-              {plan.highlighted && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-emerald-500 text-black text-xs font-bold rounded-full">
-                  MOST POPULAR
-                </div>
-              )}
-              <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
-              <div className="mt-6 mb-8">
-                <span className="text-4xl font-bold text-white">{plan.price}</span>
-                <span className="text-gray-500">{plan.period}</span>
-              </div>
-              <div className="space-y-3 mb-8">
-                {plan.features.map((feature, j) => (
-                  <div key={j} className="flex items-center gap-3">
-                    <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="text-sm text-gray-300">{feature}</span>
+              <UptimeStrip uptimeDays={uptimeSeed} size="lg" days={90} />
+              <div className="grid grid-cols-3 gap-4 mt-6 hairline-t pt-5">
+                {[
+                  { label: "Uptime · 90d", value: "99.87%" },
+                  { label: "Response", value: "142ms" },
+                  { label: "p95", value: "310ms" },
+                ].map((m) => (
+                  <div key={m.label}>
+                    <div className="text-[10px] font-num uppercase tracking-wider text-muted">{m.label}</div>
+                    <div className="font-num text-base text-ink mt-1">{m.value}</div>
                   </div>
                 ))}
               </div>
-              <Link to="/register" className="block">
-                <GetStartedButton
-                  className={
-                    "w-full justify-center " +
-                    (plan.highlighted ? "" : "bg-gray-800 hover:bg-gray-800 border border-gray-700")
-                  }
-                >
-                  {plan.cta}
-                </GetStartedButton>
-              </Link>
+              <div className="mt-6 hairline-t pt-4 space-y-2">
+                {[
+                  { name: "Auth Server",     status: "up",       ms: "38ms",  up: "100%" },
+                  { name: "Payment Service", status: "up",       ms: "120ms", up: "99.95%" },
+                  { name: "CDN Endpoint",    status: "degraded", ms: "410ms", up: "98.2%" },
+                ].map((s, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <StatusDot status={s.status} />
+                      <span className="text-ink">{s.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 font-num text-muted text-xs">
+                      <span>{s.ms}</span>
+                      <span className={s.status === "up" ? "text-st-up" : "text-st-degraded"}>{s.up}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ==============================================================
+// Marquee-ish stats strip (mono, dense)
+// ==============================================================
+function Numbers() {
+  const stats = [
+    { value: "10M+", label: "Health checks run" },
+    { value: "99.9%", label: "Platform uptime" },
+    { value: "30s",  label: "Check cadence" },
+    { value: "500+", label: "Monitors tracked" },
+  ];
+  return (
+    <section className="hairline-t hairline-b py-14">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          {stats.map((s, i) => (
+            <motion.div
+              key={s.value}
+              initial={{ opacity: 0, y: 8 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.05 }}
+              viewport={{ once: true }}
+              className={i > 0 ? "md:hairline-l md:pl-8" : ""}
+            >
+              <div className="font-num text-3xl text-ink">{s.value}</div>
+              <div className="text-[10px] font-num uppercase tracking-[0.15em] text-muted mt-2">{s.label}</div>
             </motion.div>
           ))}
         </div>
@@ -592,84 +261,212 @@ function PricingSection() {
   );
 }
 
-function FAQSection() {
-  const [openIndex, setOpenIndex] = useState(null);
+// ==============================================================
+// Problem/Solution — hairline paired columns, no gradient washes
+// ==============================================================
+function Contrast() {
+  const oldWay = [
+    "Manually checking if services are up",
+    "Finding out about outages from users",
+    "No visibility into latency degradation",
+    "Scattered monitoring across tools",
+  ];
+  const newWay = [
+    "Automated checks every 30 seconds",
+    "Instant alerts before users notice",
+    "p95 / p99 latency in real time",
+    "One instrument for every endpoint",
+  ];
+  return (
+    <section className="py-24">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-2xl mb-16">
+          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-3">There's a better way</div>
+          <h2 className="font-display text-4xl md:text-5xl leading-[1.02] text-ink">
+            Stop firefighting. <em>Start preventing.</em>
+          </h2>
+        </div>
 
-  const faqs = [
+        <div className="grid md:grid-cols-2 gap-0 hairline">
+          <div className="p-8 md:p-10 hairline-b md:hairline-b-0 md:hairline-r">
+            <div className="inline-flex items-center gap-2 text-[10px] font-num uppercase tracking-[0.15em] text-st-down mb-6">
+              <XCircle className="w-3 h-3" strokeWidth={2} /> The old way
+            </div>
+            <ul className="space-y-3">
+              {oldWay.map((t) => (
+                <li key={t} className="flex items-start gap-3 text-sm text-muted">
+                  <span className="w-3 h-[1px] bg-st-down mt-2.5 shrink-0" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="p-8 md:p-10">
+            <div className="inline-flex items-center gap-2 text-[10px] font-num uppercase tracking-[0.15em] text-st-up mb-6">
+              <CheckCircle2 className="w-3 h-3" strokeWidth={2} /> With Uptime Monitor
+            </div>
+            <ul className="space-y-3">
+              {newWay.map((t) => (
+                <li key={t} className="flex items-start gap-3 text-sm text-ink">
+                  <span className="w-3 h-[1px] bg-st-up mt-2.5 shrink-0" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ==============================================================
+// Features — mono grid
+// ==============================================================
+function Features() {
+  const items = [
+    { icon: Zap,         title: "30-second health checks", desc: "Every endpoint, on the second. Know before your users do." },
+    { icon: HeartPulse,  title: "Heartbeat monitoring",    desc: "Dead man's switch for cron jobs. If it doesn't ping in, we alert." },
+    { icon: Shield,      title: "SSL certificate tracking", desc: "Automatic expiry detection. Fourteen days of warning." },
+    { icon: Globe,       title: "Public status pages",     desc: "Branded, shareable. 90-day uptime bars. Incident history." },
+    { icon: Bell,        title: "Multi-channel alerts",    desc: "Slack, Discord, webhooks, email. Wherever the team lives." },
+    { icon: BarChart3,   title: "p95 / p99 latency",       desc: "Beyond averages. Percentile latencies that reveal reality." },
+    { icon: Terminal,    title: "Response assertions",     desc: "JSON path, string match, status codes. Validate more than 200." },
+    { icon: Wrench,      title: "Maintenance windows",     desc: "Schedule downtime without false alerts." },
+    { icon: Users,       title: "Team management",         desc: "Roles, invitations, full audit log of every action." },
+    { icon: Key,         title: "API key access",          desc: "SHA-256 hashed keys with granular permissions." },
+    { icon: Layers,      title: "Incident timeline",       desc: "Auto-created after N failures. Auto-resolved on recovery." },
+    { icon: Clock,       title: "Data retention",          desc: "90 days of check history with automatic cleanup." },
+  ];
+  return (
+    <section id="features" className="py-24">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-2xl mb-14">
+          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-3">Feature set</div>
+          <h2 className="font-display text-4xl md:text-5xl leading-[1.02] text-ink">
+            Everything you need to <em>stay online</em>.
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 hairline">
+          {items.map((f, i) => {
+            const Icon = f.icon;
+            const col = i % 3;
+            const row = Math.floor(i / 3);
+            return (
+              <div
+                key={f.title}
+                className={
+                  "p-6 md:p-8 " +
+                  ((col > 0 ? "lg:hairline-l " : "") +
+                    (col > 0 ? "md:hairline-l " : "") +
+                    (row > 0 ? "hairline-t " : ""))
+                }
+              >
+                <Icon className="w-4 h-4 text-ink mb-6" strokeWidth={1.5} />
+                <h3 className="text-base text-ink mb-2">{f.title}</h3>
+                <p className="text-sm text-muted leading-relaxed">{f.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ==============================================================
+// How it works — three steps
+// ==============================================================
+function HowItWorks() {
+  const steps = [
+    { n: "01", title: "Point us at an endpoint", desc: "URL, method, interval, expected status. That's it." },
+    { n: "02", title: "We check every 30 seconds", desc: "SSL, response bodies, latency percentiles — all tracked." },
+    { n: "03", title: "You hear only when it matters", desc: "Slack, Discord, webhooks, email. Cooldowns and dedup baked in." },
+  ];
+  return (
+    <section id="how-it-works" className="py-24 hairline-t hairline-b bg-bone/30">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-2xl mb-14">
+          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-3">Workflow</div>
+          <h2 className="font-display text-4xl md:text-5xl leading-[1.02] text-ink">Three steps. Then quiet.</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-0 hairline bg-paper">
+          {steps.map((s, i) => (
+            <div key={s.n} className={"p-8 md:p-10 " + (i > 0 ? "md:hairline-l hairline-t md:hairline-t-0" : "")}>
+              <div className="font-num text-3xl text-pulse mb-6">{s.n}</div>
+              <h3 className="font-display text-xl text-ink mb-3">{s.title}</h3>
+              <p className="text-sm text-muted leading-relaxed">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ==============================================================
+// Pricing — hairline table
+// ==============================================================
+function Pricing() {
+  const plans = [
     {
-      q: "Is UptimeMonitor right for my use case?",
-      a: "If you run any APIs, websites, or scheduled jobs that need to stay online, yes. UptimeMonitor works for solo developers, startups, and enterprise teams alike.",
+      name: "Starter", price: "Free", period: "", desc: "Side projects and single services.",
+      features: ["5 monitors", "5-minute checks", "1 alert channel", "Public status page", "7-day retention"],
+      cta: "Get started",
+      highlight: false,
     },
     {
-      q: "How fast will I know about an outage?",
-      a: "With 30-second check intervals and instant alerting to Slack, Discord, or webhooks, you'll typically know within 90 seconds of a service going down (after 3 consecutive failures to avoid false alarms).",
+      name: "Pro", price: "$19", period: "/mo", desc: "Growing teams and production stacks.",
+      features: ["50 monitors", "30-second checks", "Unlimited channels", "Team (5 seats)", "90-day retention", "API access", "Heartbeat monitoring"],
+      cta: "Start free trial",
+      highlight: true,
     },
     {
-      q: "Do I need technical experience to set it up?",
-      a: "Not at all. Add a URL, pick a check interval, and you're monitoring. For advanced use cases like response body assertions or heartbeat monitoring, we provide clear docs.",
-    },
-    {
-      q: "What happens if UptimeMonitor itself goes down?",
-      a: "We monitor our own infrastructure with redundant systems. Our platform maintains 99.99% uptime with automated failover.",
-    },
-    {
-      q: "Can I share status with my customers?",
-      a: "Yes. Every organization gets a public status page with a unique URL showing 90-day uptime bars, current status, and incident history. Visitors can subscribe to updates.",
-    },
-    {
-      q: "Can I cancel anytime?",
-      a: "Absolutely. No contracts, no hidden fees. You can downgrade or cancel at any time from your account settings.",
+      name: "Enterprise", price: "Custom", period: "", desc: "Large orgs, SLAs, and audit demands.",
+      features: ["Unlimited monitors", "Custom branded page", "Unlimited seats", "1-year retention", "Full API", "Priority support", "SLA guarantees"],
+      cta: "Contact sales",
+      highlight: false,
     },
   ];
-
   return (
-    <section id="faq" className="py-24 bg-gray-900/30">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">Frequently Asked Questions</h2>
-          <p className="text-gray-400 mt-4">Got questions? We've got answers.</p>
-        </motion.div>
-
-        <div className="space-y-3">
-          {faqs.map((faq, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              viewport={{ once: true }}
-              className="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden"
-            >
-              <button
-                onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                className="w-full flex items-center justify-between p-5 text-left"
-              >
-                <span className="font-medium text-white pr-4">{faq.q}</span>
-                <ChevronDown
-                  className={
-                    "w-5 h-5 text-gray-500 shrink-0 transition-transform duration-300 " +
-                    (openIndex === i ? "rotate-180" : "")
-                  }
-                />
-              </button>
-              {openIndex === i && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  transition={{ duration: 0.3 }}
-                  className="px-5 pb-5"
-                >
-                  <p className="text-gray-400 text-sm leading-relaxed">{faq.a}</p>
-                </motion.div>
+    <section id="pricing" className="py-24">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-2xl mb-14">
+          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-3">Pricing</div>
+          <h2 className="font-display text-4xl md:text-5xl leading-[1.02] text-ink">Simple. <em>Transparent.</em></h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-0 hairline">
+          {plans.map((p, i) => (
+            <div key={p.name} className={"p-8 " + (i > 0 ? "md:hairline-l hairline-t md:hairline-t-0 " : "") + (p.highlight ? "bg-ink text-paper relative" : "bg-paper")}>
+              {p.highlight && (
+                <div className="absolute -top-3 left-8 px-2 py-1 bg-pulse text-paper text-[10px] font-num uppercase tracking-wider">
+                  Most popular
+                </div>
               )}
-            </motion.div>
+              <h3 className={"font-display text-xl " + (p.highlight ? "text-paper" : "text-ink")}>{p.name}</h3>
+              <p className={"text-xs mt-1 " + (p.highlight ? "text-paper/60" : "text-muted")}>{p.desc}</p>
+              <div className="mt-6 mb-8">
+                <span className={"font-num text-3xl " + (p.highlight ? "text-paper" : "text-ink")}>{p.price}</span>
+                <span className={"font-num text-sm " + (p.highlight ? "text-paper/60" : "text-muted")}>{p.period}</span>
+              </div>
+              <ul className="space-y-2.5 mb-8">
+                {p.features.map((f) => (
+                  <li key={f} className={"flex items-start gap-2 text-sm " + (p.highlight ? "text-paper/80" : "text-ink")}>
+                    <CheckCircle2 className={"w-3.5 h-3.5 shrink-0 mt-0.5 " + (p.highlight ? "text-pulse" : "text-st-up")} strokeWidth={2} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              {p.highlight ? (
+                <Link to="/register" className="block">
+                  <button className="w-full h-11 bg-pulse text-paper hover:bg-paper hover:text-ink transition-colors text-sm font-medium">
+                    {p.cta}
+                  </button>
+                </Link>
+              ) : (
+                <Button asChild variant="ghost" className="w-full justify-center"><Link to="/register">{p.cta}</Link></Button>
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -677,100 +474,150 @@ function FAQSection() {
   );
 }
 
+// ==============================================================
+// FAQ
+// ==============================================================
+function FAQ() {
+  const [open, setOpen] = useState(null);
+  const faqs = [
+    { q: "Is Uptime Monitor right for me?", a: "If you run APIs, sites, or cron jobs that need to stay up — yes. Works equally well for a single side project or a fleet of hundreds of services." },
+    { q: "How fast will I know about an outage?", a: "With 30-second checks and instant alerting to Slack/Discord/webhooks, typically within 90 seconds (three consecutive failures to suppress flaps)." },
+    { q: "Do I need technical experience to set up?", a: "No. Add a URL, pick an interval — you're monitoring. Response body assertions and heartbeats are documented if you want to go deeper." },
+    { q: "What if Uptime Monitor itself goes down?", a: "Redundant checkers across regions with automated failover. We publish our own status page." },
+    { q: "Can I share status with my customers?", a: "Yes — every workspace gets a public status page with 90-day uptime bars and incident history. Visitors can subscribe to email updates." },
+    { q: "Can I cancel anytime?", a: "No contracts. Downgrade or cancel from settings at any time." },
+  ];
+  return (
+    <section id="faq" className="py-24 hairline-t">
+      <div className="max-w-3xl mx-auto px-6">
+        <div className="mb-12">
+          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-3">Questions</div>
+          <h2 className="font-display text-4xl md:text-5xl leading-[1.02] text-ink">Frequently asked.</h2>
+        </div>
+        <div className="hairline">
+          {faqs.map((f, i) => (
+            <div key={f.q} className={i > 0 ? "hairline-t" : ""}>
+              <button
+                onClick={() => setOpen(open === i ? null : i)}
+                className="w-full flex items-center justify-between px-5 py-5 text-left hover:bg-bone/40 transition-colors"
+                aria-expanded={open === i}
+              >
+                <span className="text-base text-ink pr-4">{f.q}</span>
+                <ChevronDown className={"w-4 h-4 text-muted shrink-0 transition-transform " + (open === i ? "rotate-180" : "")} strokeWidth={1.8} />
+              </button>
+              <AnimatePresence initial={false}>
+                {open === i && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <p className="px-5 pb-5 text-sm text-muted leading-relaxed max-w-2xl">{f.a}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ==============================================================
+// Final CTA
+// ==============================================================
 function FinalCTA() {
   return (
     <section className="py-24">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="relative overflow-hidden bg-gradient-to-br from-emerald-500/10 via-gray-900 to-cyan-500/10 border border-emerald-500/20 rounded-3xl p-12 sm:p-16 text-center"
-        >
-          <div className="absolute top-0 left-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl" />
-
-          <div className="relative z-10">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Ready to Stop Worrying About Downtime?
-            </h2>
-            <p className="text-gray-400 text-lg mb-8 max-w-xl mx-auto">
-              Join developers who sleep better knowing their services are monitored 24/7.
-            </p>
-            <Link to="/register">
-              <GetStartedButton>Start Monitoring for Free</GetStartedButton>
-            </Link>
-            <p className="text-xs text-gray-500 mt-4">No credit card required. Set up in under 2 minutes.</p>
+      <div className="max-w-4xl mx-auto px-6">
+        <div className="hairline bg-ink text-paper p-12 md:p-16 text-center relative overflow-hidden">
+          <div className="absolute top-6 right-6">
+            <LivePulse trigger={0} label="LIVE" className="text-paper/60" />
           </div>
-        </motion.div>
+          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-paper/50 mb-4">Ready when you are</div>
+          <h2 className="font-display text-4xl md:text-6xl text-paper leading-[1] mb-6">
+            <em>Sleep better</em>.<br/>Start monitoring today.
+          </h2>
+          <p className="text-paper/70 text-base mb-10 max-w-md mx-auto">
+            No credit card. Five monitors free forever. Set up in under two minutes.
+          </p>
+          <Link to="/register">
+            <button className="h-12 px-8 bg-pulse text-paper hover:bg-paper hover:text-ink transition-colors text-sm font-medium inline-flex items-center gap-2">
+              Start monitoring — free <ArrowRight className="w-4 h-4" strokeWidth={2} />
+            </button>
+          </Link>
+        </div>
       </div>
     </section>
   );
 }
 
+// ==============================================================
+// Footer
+// ==============================================================
 function Footer() {
   return (
-    <footer className="border-t border-gray-800 py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+    <footer className="hairline-t py-12">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Activity className="w-5 h-5 text-emerald-500" />
-              <span className="font-bold text-white">UptimeMonitor</span>
-            </div>
-            <p className="text-sm text-gray-500">Open-source API monitoring built for developers.</p>
+            <Wordmark />
+            <p className="text-xs text-muted mt-4 max-w-xs">Open-source uptime monitoring built for developers.</p>
           </div>
           <div>
-            <h4 className="font-semibold text-white text-sm mb-3">Product</h4>
+            <h4 className="text-[10px] font-num uppercase tracking-[0.15em] text-muted mb-3">Product</h4>
             <div className="space-y-2">
-              <a href="#features" className="block text-sm text-gray-500 hover:text-gray-300">Features</a>
-              <a href="#pricing" className="block text-sm text-gray-500 hover:text-gray-300">Pricing</a>
-              <a href="#how-it-works" className="block text-sm text-gray-500 hover:text-gray-300">How It Works</a>
-              <a href="#faq" className="block text-sm text-gray-500 hover:text-gray-300">FAQ</a>
+              <a href="#features" className="block text-sm text-ink/70 hover:text-ink">Features</a>
+              <a href="#pricing" className="block text-sm text-ink/70 hover:text-ink">Pricing</a>
+              <a href="#how-it-works" className="block text-sm text-ink/70 hover:text-ink">How it works</a>
+              <a href="#faq" className="block text-sm text-ink/70 hover:text-ink">FAQ</a>
             </div>
           </div>
           <div>
-            <h4 className="font-semibold text-white text-sm mb-3">Resources</h4>
-            <div className="space-y-2">
-              <span className="block text-sm text-gray-500">Documentation</span>
-              <span className="block text-sm text-gray-500">API Reference</span>
-              <span className="block text-sm text-gray-500">Status Page</span>
+            <h4 className="text-[10px] font-num uppercase tracking-[0.15em] text-muted mb-3">Resources</h4>
+            <div className="space-y-2 text-sm text-muted">
+              <span className="block">Documentation</span>
+              <span className="block">API reference</span>
+              <span className="block">Status page</span>
             </div>
           </div>
           <div>
-            <h4 className="font-semibold text-white text-sm mb-3">Legal</h4>
-            <div className="space-y-2">
-              <span className="block text-sm text-gray-500">Privacy Policy</span>
-              <span className="block text-sm text-gray-500">Terms of Service</span>
-              <span className="block text-sm text-gray-500">MIT License</span>
+            <h4 className="text-[10px] font-num uppercase tracking-[0.15em] text-muted mb-3">Legal</h4>
+            <div className="space-y-2 text-sm text-muted">
+              <span className="block">Privacy</span>
+              <span className="block">Terms</span>
+              <span className="block">MIT license</span>
             </div>
           </div>
         </div>
-        <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-gray-600">2026 UptimeMonitor. All rights reserved.</p>
-          <p className="text-sm text-gray-600">Built with care for developers</p>
+        <div className="hairline-t pt-6 flex flex-col sm:flex-row justify-between gap-2 text-[10px] font-num uppercase tracking-[0.15em] text-muted">
+          <span>© {new Date().getFullYear()} Uptime Monitor</span>
+          <span>Built with care for developers</span>
         </div>
       </div>
     </footer>
   );
 }
 
-const Landing = () => {
-  return (
-    <div className="bg-gray-950 text-gray-100">
-      <Navbar />
-      <HeroSection />
-      <SocialProof />
-      <ProblemSolution />
-      <FeaturesSection />
-      <HowItWorks />
-      <PricingSection />
-      <FAQSection />
-      <FinalCTA />
-      <Footer />
-    </div>
-  );
-};
+// ==============================================================
+// Root
+// ==============================================================
+const Landing = () => (
+  <div className="bg-paper text-ink min-h-screen">
+    <Nav />
+    <Hero />
+    <Numbers />
+    <Contrast />
+    <Features />
+    <HowItWorks />
+    <Pricing />
+    <FAQ />
+    <FinalCTA />
+    <Footer />
+  </div>
+);
 
 export default Landing;
