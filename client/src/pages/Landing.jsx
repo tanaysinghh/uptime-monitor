@@ -237,39 +237,6 @@ function Hero() {
 }
 
 // ==============================================================
-// Marquee-ish stats strip (mono, dense)
-// ==============================================================
-function Numbers() {
-  const stats = [
-    { value: "10M+", label: "Health checks run" },
-    { value: "99.9%", label: "Platform uptime" },
-    { value: "30s",  label: "Check cadence" },
-    { value: "500+", label: "Monitors tracked" },
-  ];
-  return (
-    <section className="hairline-t hairline-b py-14">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((s, i) => (
-            <motion.div
-              key={s.value}
-              initial={{ opacity: 0, y: 8 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.05 }}
-              viewport={{ once: true }}
-              className={i > 0 ? "md:hairline-l md:pl-8" : ""}
-            >
-              <div className="font-num text-3xl text-ink">{s.value}</div>
-              <div className="text-[10px] font-num uppercase tracking-[0.15em] text-muted mt-2">{s.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ==============================================================
 // Problem/Solution — hairline paired columns, no gradient washes
 // ==============================================================
 function Contrast() {
@@ -546,7 +513,6 @@ const Landing = () => (
   <div className="bg-paper text-ink min-h-screen">
     <Nav />
     <Hero />
-    <Numbers />
     <Contrast />
     <Features />
     <HowItWorks />
