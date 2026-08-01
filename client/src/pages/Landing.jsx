@@ -121,7 +121,7 @@ function Hero() {
           transition={{ duration: 0.5, ease: [0.25, 1, 0.5, 1] }}
           className="font-display text-ink text-center leading-[0.95] mb-16 md:mb-24 text-[40px] sm:text-[52px] lg:text-[64px]"
         >
-          Uptime Monitor
+          Uptime <em>Monitor</em>
         </motion.div>
 
         <div className="grid lg:grid-cols-12 gap-12 items-end">
