@@ -22,10 +22,16 @@ const App = () => {
           position="top-right"
           toastOptions={{
             style: {
-              background: "#1f2937",
-              color: "#f3f4f6",
-              border: "1px solid #374151",
+              background: "#0E0E10",
+              color: "#F4EFE6",
+              border: "1px solid #24221D",
+              borderRadius: "0",
+              fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+              fontSize: "13px",
+              padding: "10px 14px",
             },
+            success: { iconTheme: { primary: "#2E6B4E", secondary: "#F4EFE6" } },
+            error:   { iconTheme: { primary: "#B23A2A", secondary: "#F4EFE6" } },
           }}
         />
         <Routes>
@@ -33,54 +39,12 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/status/:slug" element={<StatusPage />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Layout><Dashboard /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/monitors"
-            element={
-              <ProtectedRoute>
-                <Layout><Monitors /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/monitors/:id"
-            element={
-              <ProtectedRoute>
-                <Layout><MonitorDetail /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/alerts"
-            element={
-              <ProtectedRoute>
-                <Layout><Alerts /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/team"
-            element={
-              <ProtectedRoute>
-                <Layout><Team /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Layout><Settings /></Layout>
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+          <Route path="/monitors" element={<ProtectedRoute><Layout><Monitors /></Layout></ProtectedRoute>} />
+          <Route path="/monitors/:id" element={<ProtectedRoute><Layout><MonitorDetail /></Layout></ProtectedRoute>} />
+          <Route path="/alerts" element={<ProtectedRoute><Layout><Alerts /></Layout></ProtectedRoute>} />
+          <Route path="/team" element={<ProtectedRoute><Layout><Team /></Layout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
