@@ -22,16 +22,16 @@ const App = () => {
           position="top-right"
           toastOptions={{
             style: {
-              background: "#0E0E10",
-              color: "#F4EFE6",
-              border: "1px solid #24221D",
+              background: "#133024",
+              color: "#F2F4EF",
+              border: "1px solid #1E4234",
               borderRadius: "0",
               fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
               fontSize: "13px",
               padding: "10px 14px",
             },
-            success: { iconTheme: { primary: "#2E6B4E", secondary: "#F4EFE6" } },
-            error:   { iconTheme: { primary: "#B23A2A", secondary: "#F4EFE6" } },
+            success: { iconTheme: { primary: "#4FBF83", secondary: "#0B1F17" } },
+            error:   { iconTheme: { primary: "#E86454", secondary: "#0B1F17" } },
           }}
         />
         <Routes>

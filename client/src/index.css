@@ -1,31 +1,30 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
 @import "tailwindcss";
 
-/* Dark mode variant: .dark on <html> or any ancestor */
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   /* ============================================================
      PALETTE — Core (used everywhere)
+     Dark emerald as the dominant background; near-white text;
+     muted silver-mint secondary; a single warm amber reserved for live moments.
      ============================================================ */
-  --color-ink: #0E0E10;
-  --color-paper: #F4EFE6;
-  --color-bone: #EAE3D2;
-  --color-bone-strong: #D8D0BC;
-  --color-muted: #6B655A;
-  --color-pulse: #E85D2F;
+  --color-ink: #F2F4EF;
+  --color-paper: #0B1F17;
+  --color-bone: #133024;
+  --color-bone-strong: #1E4234;
+  --color-muted: #8FA69A;
+  --color-pulse: #E8A15D;
 
   /* PALETTE — Status (semantic — ONLY in status contexts) */
-  --color-st-up: #2E6B4E;
-  --color-st-degraded: #C7902D;
-  --color-st-down: #B23A2A;
-  --color-st-maint: #4A5560;
+  --color-st-up: #4FBF83;
+  --color-st-degraded: #E5B04A;
+  --color-st-down: #E86454;
+  --color-st-maint: #8A9CA8;
 
   /* Subtle tinted washes for status card backgrounds */
-  --color-st-up-wash: #E4EBE1;
-  --color-st-degraded-wash: #F1E6C9;
-  --color-st-down-wash: #EED9D4;
-  --color-st-maint-wash: #E1E3E4;
+  --color-st-up-wash: #143229;
+  --color-st-degraded-wash: #2B2418;
+  --color-st-down-wash: #2E1815;
+  --color-st-maint-wash: #1A2226;
 
   /* ============================================================
      TYPOGRAPHY
@@ -68,22 +67,6 @@
      ANIMATION TOKENS
      ============================================================ */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-/* ==================================================
-   DARK MODE — override core tokens only
-   ================================================== */
-.dark {
-  --color-ink: #F0EBE0;
-  --color-paper: #14130F;
-  --color-bone: #24221D;
-  --color-bone-strong: #37342C;
-  --color-muted: #8A8477;
-
-  --color-st-up-wash: #182821;
-  --color-st-degraded-wash: #2A2418;
-  --color-st-down-wash: #2A1A17;
-  --color-st-maint-wash: #1E2124;
 }
 
 /* ==================================================

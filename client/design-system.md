@@ -1,28 +1,30 @@
 # Uptime Monitor — Design System
 
-The product's identity is *precise engineering instrument*: monochrome-warm, editorial-technical, with a single reserved color for live moments. Trust before excitement. Numbers are the hero.
+The product's identity is *precise engineering instrument*: deep-emerald, editorial-technical, with a single reserved color for live moments. Trust before excitement. Numbers are the hero.
 
 ## Palette
 
+Unified — no light/dark split. The site is dark-emerald everywhere.
+
 ### Core (used everywhere)
-| Token | Light | Dark | Purpose |
-|---|---|---|---|
-| `--color-ink` | `#0E0E10` | `#F0EBE0` | Text, primary buttons, icons |
-| `--color-paper` | `#F4EFE6` | `#14130F` | Page background (warm cream, not white) |
-| `--color-bone` | `#EAE3D2` | `#24221D` | Hairline borders, subtle surfaces |
-| `--color-bone-strong` | `#D8D0BC` | `#37342C` | Dividers, no-data bars |
-| `--color-muted` | `#6B655A` | `#8A8477` | Secondary text, timestamps |
-| `--color-pulse` | `#E85D2F` | `#E85D2F` | **Reserved.** Live-check pulse, focus rings, brand mark accent |
+| Token | Value | Purpose |
+|---|---|---|
+| `--color-ink` | `#F2F4EF` | Text, primary buttons, icons — near-white with a hint of warmth |
+| `--color-paper` | `#0B1F17` | Page background — deep forest/bottle emerald |
+| `--color-bone` | `#133024` | Hairline borders, subtle lifted surfaces |
+| `--color-bone-strong` | `#1E4234` | Dividers, no-data bars |
+| `--color-muted` | `#8FA69A` | Secondary text, timestamps — muted silver-mint |
+| `--color-pulse` | `#E8A15D` | **Reserved.** Live-check pulse, focus rings, brand mark accent — warm amber |
 
 ### Semantic status — used **only** in status contexts
 | Token | Value | Meaning |
 |---|---|---|
-| `--color-st-up` | `#2E6B4E` | Operational / healthy |
-| `--color-st-degraded` | `#C7902D` | Degraded / slow |
-| `--color-st-down` | `#B23A2A` | Incident / down |
-| `--color-st-maint` | `#4A5560` | Maintenance / no data |
+| `--color-st-up` | `#4FBF83` | Operational / healthy |
+| `--color-st-degraded` | `#E5B04A` | Degraded / slow |
+| `--color-st-down` | `#E86454` | Incident / down |
+| `--color-st-maint` | `#8A9CA8` | Maintenance / no data |
 
-**Rule:** amber `#C7902D` means *degraded* and nothing else. Brick red `#B23A2A` means *incident* and nothing else. Pulse orange `#E85D2F` is never used for status. Every status color is accompanied by an icon or label — never color alone.
+**Rule:** amber `#E5B04A` means *degraded* and nothing else. Coral-red `#E86454` means *incident* and nothing else. Pulse amber `#E8A15D` is never used for status. Every status color is accompanied by an icon or label — never color alone.
 
 ## Typography — three voices
 

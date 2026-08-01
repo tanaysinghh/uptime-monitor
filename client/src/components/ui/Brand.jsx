@@ -27,7 +27,7 @@ export const Brandmark = ({ size = 20, withPulse = true, className }) => {
           cx={size - Math.max(2, size / 8)}
           cy={Math.max(2, size / 8)}
           r={Math.max(1.5, size / 12)}
-          fill="#E85D2F"
+          fill="#E8A15D"
         />
       )}
     </svg>
