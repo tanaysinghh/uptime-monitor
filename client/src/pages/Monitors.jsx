@@ -1,23 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import api from "../api/axios";
-import { GetStartedButton } from "../components/ui/GetStartedButton";
 import toast from "react-hot-toast";
-import {
-  Plus,
-  ArrowUp,
-  ArrowDown,
-  Pause,
-  Clock,
-  Trash2,
-} from "lucide-react";
-
-const statusConfig = {
-  up: { color: "text-emerald-400", bg: "bg-emerald-500/10", icon: ArrowUp, label: "Up" },
-  down: { color: "text-red-400", bg: "bg-red-500/10", icon: ArrowDown, label: "Down" },
-  paused: { color: "text-yellow-400", bg: "bg-yellow-500/10", icon: Pause, label: "Paused" },
-  pending: { color: "text-gray-400", bg: "bg-gray-500/10", icon: Clock, label: "Pending" },
-};
+import { PageHeader } from "../components/ui/Section";
+import { Button } from "../components/ui/button";
+import { Field, Input, Select } from "../components/ui/Field";
+import { StatusDot, StatusLabel } from "../components/ui/StatusDot";
+import { UptimeStrip } from "../components/ui/UptimeStrip";
+import { Loading, Empty } from "../components/ui/States";
+import { Plus, Pause, Play, Trash2, ChevronRight, Activity } from "lucide-react";
 
 const Monitors = () => {
   const [monitors, setMonitors] = useState([]);
@@ -31,21 +23,20 @@ const Monitors = () => {
     timeoutMs: 30000,
     expectedStatus: 200,
   });
+  const reduce = useReducedMotion();
 
   const fetchMonitors = async () => {
     try {
       const response = await api.get("/monitors");
       setMonitors(response.data.monitors);
-    } catch (error) {
+    } catch {
       toast.error("Failed to fetch monitors");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMonitors();
-  }, []);
+  useEffect(() => { fetchMonitors(); }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -53,14 +44,7 @@ const Monitors = () => {
       await api.post("/monitors", formData);
       toast.success("Monitor created");
       setShowForm(false);
-      setFormData({
-        name: "",
-        url: "",
-        method: "GET",
-        intervalSeconds: 300,
-        timeoutMs: 30000,
-        expectedStatus: 200,
-      });
+      setFormData({ name: "", url: "", method: "GET", intervalSeconds: 300, timeoutMs: 30000, expectedStatus: 200 });
       fetchMonitors();
     } catch (error) {
       toast.error(error.response?.data?.error || "Failed to create monitor");
@@ -68,12 +52,12 @@ const Monitors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this monitor?")) return;
+    if (!window.confirm("Delete this monitor?")) return;
     try {
       await api.delete("/monitors/" + id);
       toast.success("Monitor deleted");
       fetchMonitors();
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete monitor");
     }
   };
@@ -84,177 +68,137 @@ const Monitors = () => {
       await api.put("/monitors/" + monitor.id, { status: newStatus });
       toast.success(newStatus === "paused" ? "Monitor paused" : "Monitor resumed");
       fetchMonitors();
-    } catch (error) {
+    } catch {
       toast.error("Failed to update monitor");
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const intervalLabel = (s) =>
+    s < 60 ? s + "s" : s < 3600 ? Math.round(s / 60) + "m" : Math.round(s / 3600) + "h";
+
+  if (loading) return <Loading label="Loading monitors" />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Monitors</h1>
-          <p className="text-gray-400 mt-1">{monitors.length} monitors configured</p>
-        </div>
-        <GetStartedButton onClick={() => setShowForm(!showForm)}>
-          Add Monitor
-        </GetStartedButton>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow={<span className="font-num">{monitors.length.toString().padStart(2, "0")} configured</span>}
+        title={<>All your <em>monitors</em></>}
+        description="Every endpoint, every check interval, every incident — one table."
+        actions={
+          <Button onClick={() => setShowForm((s) => !s)}>
+            <Plus className="w-4 h-4" strokeWidth={2} /> {showForm ? "Cancel" : "New monitor"}
+          </Button>
+        }
+      />
 
-      {showForm && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">New Monitor</h2>
-          <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="My API"
-              />
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={reduce ? {} : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? {} : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="hairline bg-paper mb-8"
+          >
+            <div className="px-6 py-5 hairline-b flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-num uppercase tracking-[0.15em] text-muted">New monitor</div>
+                <h2 className="font-display text-lg text-ink mt-0.5">Configure the endpoint</h2>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">URL</label>
-              <input
-                type="url"
-                value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                required
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="https://api.example.com/health"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Method</label>
-              <select
-                value={formData.method}
-                onChange={(e) => setFormData({ ...formData, method: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="HEAD">HEAD</option>
-                <option value="PUT">PUT</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Check Interval</label>
-              <select
-                value={formData.intervalSeconds}
-                onChange={(e) => setFormData({ ...formData, intervalSeconds: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value={30}>30 seconds</option>
-                <option value={60}>1 minute</option>
-                <option value={300}>5 minutes</option>
-                <option value={900}>15 minutes</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Timeout (ms)</label>
-              <input
-                type="number"
-                value={formData.timeoutMs}
-                onChange={(e) => setFormData({ ...formData, timeoutMs: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Expected Status</label>
-              <input
-                type="number"
-                value={formData.expectedStatus}
-                onChange={(e) => setFormData({ ...formData, expectedStatus: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-            <div className="md:col-span-2 flex gap-3">
-              <GetStartedButton onClick={handleCreate}>
-                Create Monitor
-              </GetStartedButton>
-              <GetStartedButton
-                onClick={() => setShowForm(false)}
-                className="bg-gray-800 hover:bg-gray-800 border border-gray-700"
-              >
-                Cancel
-              </GetStartedButton>
-            </div>
-          </form>
-        </div>
-      )}
+            <form onSubmit={handleCreate} className="p-6 grid grid-cols-1 md:grid-cols-6 gap-5">
+              <Field className="md:col-span-2" label="Name" htmlFor="mn-name" required>
+                <Input id="mn-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="Production API" />
+              </Field>
+              <Field className="md:col-span-4" label="URL" htmlFor="mn-url" required>
+                <Input id="mn-url" type="url" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} required placeholder="https://api.example.com/health" />
+              </Field>
+              <Field className="md:col-span-2" label="Method" htmlFor="mn-method">
+                <Select id="mn-method" value={formData.method} onChange={(e) => setFormData({ ...formData, method: e.target.value })}>
+                  <option>GET</option><option>POST</option><option>HEAD</option><option>PUT</option>
+                </Select>
+              </Field>
+              <Field className="md:col-span-2" label="Check interval" htmlFor="mn-interval">
+                <Select id="mn-interval" value={formData.intervalSeconds} onChange={(e) => setFormData({ ...formData, intervalSeconds: parseInt(e.target.value) })}>
+                  <option value={30}>30 seconds</option>
+                  <option value={60}>1 minute</option>
+                  <option value={300}>5 minutes</option>
+                  <option value={900}>15 minutes</option>
+                </Select>
+              </Field>
+              <Field className="md:col-span-1" label="Timeout" htmlFor="mn-timeout">
+                <Input id="mn-timeout" mono type="number" value={formData.timeoutMs} onChange={(e) => setFormData({ ...formData, timeoutMs: parseInt(e.target.value) })} />
+              </Field>
+              <Field className="md:col-span-1" label="Expected" htmlFor="mn-status">
+                <Input id="mn-status" mono type="number" value={formData.expectedStatus} onChange={(e) => setFormData({ ...formData, expectedStatus: parseInt(e.target.value) })} />
+              </Field>
+              <div className="md:col-span-6 flex gap-3 pt-2 hairline-t -mx-6 px-6 -mb-6 pb-5 mt-2">
+                <Button type="submit">Create monitor</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="space-y-3">
-        {monitors.map((monitor) => {
-          const config = statusConfig[monitor.status] || statusConfig.pending;
-          const StatusIcon = config.icon;
-          return (
+      {monitors.length === 0 ? (
+        <Empty
+          icon={Activity}
+          title="No monitors yet."
+          description="Add your first endpoint. 30-second checks. p95/p99 latency. Alerts wherever your team works."
+          action={<Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> New monitor</Button>}
+        />
+      ) : (
+        <div className="hairline bg-paper">
+          {/* Header row */}
+          <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3 hairline-b text-[10px] font-num uppercase tracking-[0.15em] text-muted">
+            <div className="col-span-4">Name</div>
+            <div className="col-span-1">Method</div>
+            <div className="col-span-1">Every</div>
+            <div className="col-span-4">Last 90 days</div>
+            <div className="col-span-2 text-right">Status</div>
+          </div>
+          {monitors.map((monitor, idx) => (
             <div
               key={monitor.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center justify-between hover:border-gray-700 transition-colors"
+              className={"group grid grid-cols-1 md:grid-cols-12 gap-4 items-center px-5 py-4 hover:bg-bone/40 transition-colors " + (idx > 0 ? "hairline-t" : "")}
             >
-              <div className="flex items-center gap-4">
-                <div className={"p-2 rounded-lg " + config.bg}>
-                  <StatusIcon className={"w-5 h-5 " + config.color} />
-                </div>
-                <div>
-                  <Link
-                    to={"/monitors/" + monitor.id}
-                    className="font-medium hover:text-emerald-400 transition-colors"
-                  >
-                    {monitor.name}
-                  </Link>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-sm text-gray-500">{monitor.url}</span>
-                    <span className="text-xs text-gray-600">{monitor.method}</span>
-                    <span className="text-xs text-gray-600">
-                      every {monitor.intervalSeconds < 60
-                        ? monitor.intervalSeconds + "s"
-                        : monitor.intervalSeconds / 60 + "m"}
-                    </span>
-                  </div>
-                </div>
+              <div className="md:col-span-4 min-w-0">
+                <Link to={`/monitors/${monitor.id}`} className="group/link inline-flex items-center gap-2 min-w-0">
+                  <StatusDot status={monitor.status} />
+                  <span className="text-sm text-ink truncate group-hover/link:text-pulse transition-colors">{monitor.name}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={1.8} />
+                </Link>
+                <p className="text-xs text-muted mt-0.5 truncate font-num pl-4">{monitor.url}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={"text-sm font-medium " + config.color}>
-                  {config.label}
-                </span>
+              <div className="md:col-span-1 text-xs font-num text-muted uppercase">{monitor.method}</div>
+              <div className="md:col-span-1 text-xs font-num text-muted">{intervalLabel(monitor.intervalSeconds)}</div>
+              <div className="md:col-span-4">
+                <UptimeStrip uptimeDays={monitor.uptimeDays || []} size="sm" showLegend={false} days={90} />
+              </div>
+              <div className="md:col-span-2 flex items-center gap-1 md:justify-end">
+                <StatusLabel status={monitor.status} />
                 <button
                   onClick={() => togglePause(monitor)}
-                  className="p-2 text-gray-500 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-colors"
-                  title={monitor.status === "paused" ? "Resume" : "Pause"}
+                  className="p-2 text-muted hover:text-ink transition-colors"
+                  aria-label={monitor.status === "paused" ? "Resume" : "Pause"}
                 >
-                  <Pause className="w-4 h-4" />
+                  {monitor.status === "paused"
+                    ? <Play className="w-3.5 h-3.5" strokeWidth={1.8} />
+                    : <Pause className="w-3.5 h-3.5" strokeWidth={1.8} />}
                 </button>
                 <button
                   onClick={() => handleDelete(monitor.id)}
-                  className="p-2 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                  title="Delete"
+                  className="p-2 text-muted hover:text-st-down transition-colors"
+                  aria-label="Delete"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
                 </button>
               </div>
             </div>
-          );
-        })}
-
-        {monitors.length === 0 && (
-          <div className="text-center py-16 text-gray-500">
-            <p className="text-lg">No monitors yet</p>
-            <p className="text-sm mt-1">Click "Add Monitor" to get started</p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
