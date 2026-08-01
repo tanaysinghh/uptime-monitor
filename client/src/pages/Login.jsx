@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Activity, ShieldCheck } from "lucide-react";
-import { GetStartedButton } from "../components/ui/GetStartedButton";
+import { AuthShell } from "../components/AuthShell";
+import { Button } from "../components/ui/button";
+import { Field, Input } from "../components/ui/Field";
+import { ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 
 const Login = () => {
@@ -21,9 +23,9 @@ const Login = () => {
       const result = await login(email, password);
       if (result?.requiresMfa) {
         setMfaChallengeToken(result.mfaChallengeToken);
-        toast("Enter your authenticator code", { icon: "🔐" });
+        toast("Enter your authenticator code");
       } else {
-        toast.success("Logged in successfully");
+        toast.success("Signed in");
         navigate("/dashboard");
       }
     } catch (error) {
@@ -38,7 +40,7 @@ const Login = () => {
     setLoading(true);
     try {
       await completeMfa(mfaChallengeToken, code);
-      toast.success("Logged in successfully");
+      toast.success("Signed in");
       navigate("/dashboard");
     } catch (error) {
       toast.error(error.response?.data?.error || "Verification failed");
@@ -54,96 +56,82 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center justify-center gap-2 mb-4">
-            <Activity className="w-10 h-10 text-emerald-500" />
-          </Link>
-          <h1 className="text-3xl font-bold text-white">
-            {mfaChallengeToken ? "Two-factor required" : "Welcome back"}
-          </h1>
-          <p className="text-gray-400 mt-2">
-            {mfaChallengeToken
-              ? "Enter the 6-digit code from your authenticator app, or a backup code."
-              : "Sign in to your account"}
-          </p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
-          {!mfaChallengeToken ? (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div className="flex justify-center">
-                <GetStartedButton onClick={handleSubmit} className="w-full justify-center">
-                  {loading ? "Signing in..." : "Sign in"}
-                </GetStartedButton>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={submitMfa} className="space-y-5">
-              <div className="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm text-emerald-200">
-                <ShieldCheck className="w-5 h-5 shrink-0" />
-                <span>Password accepted. One more step.</span>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Authenticator code or backup code
-                </label>
-                <input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  required
-                  autoFocus
-                  autoComplete="one-time-code"
-                  inputMode="text"
-                  placeholder="123456 or xxxx-xxxx"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-center tracking-widest"
-                />
-              </div>
-              <div className="flex justify-center">
-                <GetStartedButton onClick={submitMfa} className="w-full justify-center">
-                  {loading ? "Verifying..." : "Verify"}
-                </GetStartedButton>
-              </div>
-              <button
-                type="button"
-                onClick={cancelMfa}
-                className="w-full text-center text-sm text-gray-400 hover:text-gray-200"
-              >
-                Back to sign in
-              </button>
-            </form>
-          )}
-          <p className="text-center text-gray-400 text-sm mt-6">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-emerald-400 hover:text-emerald-300">
-              Sign up
+    <AuthShell
+      eyebrow={mfaChallengeToken ? "Step 2 of 2" : "Sign in"}
+      title={mfaChallengeToken ? <><em>Two factors</em>, one you.</> : <>Welcome <em>back</em>.</>}
+      description={
+        mfaChallengeToken
+          ? "Enter the 6-digit code from your authenticator app, or a single-use backup code."
+          : "Continue to your monitoring workspace."
+      }
+      footer={
+        !mfaChallengeToken && (
+          <>
+            No account yet?{" "}
+            <Link to="/register" className="text-ink underline underline-offset-4 hover:text-pulse">
+              Create one
             </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+          </>
+        )
+      }
+    >
+      {!mfaChallengeToken ? (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Field label="Email" htmlFor="email" required>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="you@example.com"
+            />
+          </Field>
+          <Field label="Password" htmlFor="password" required>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </Field>
+          <Button type="submit" size="lg" className="w-full" disabled={loading}>
+            {loading ? "Signing in…" : "Sign in"}
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={submitMfa} className="space-y-6">
+          <div className="hairline bg-st-up-wash px-4 py-3 flex items-center gap-3 text-sm text-st-up">
+            <ShieldCheck className="w-4 h-4 shrink-0" strokeWidth={1.8} />
+            <span>Password accepted. One more step.</span>
+          </div>
+          <Field label="Authenticator or backup code" htmlFor="mfa" required>
+            <Input
+              id="mfa"
+              mono
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+              autoFocus
+              autoComplete="one-time-code"
+              inputMode="text"
+              placeholder="123 456"
+              className="text-center tracking-[0.4em] text-base"
+            />
+          </Field>
+          <Button type="submit" size="lg" className="w-full" disabled={loading}>
+            {loading ? "Verifying…" : "Verify and continue"}
+          </Button>
+          <Button type="button" variant="text" onClick={cancelMfa} className="text-xs">
+            ← Back to sign in
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 };
 

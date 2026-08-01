@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Activity } from "lucide-react";
-import { GetStartedButton } from "../components/ui/GetStartedButton";
+import { AuthShell } from "../components/AuthShell";
+import { Button } from "../components/ui/button";
+import { Field, Input } from "../components/ui/Field";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import toast from "react-hot-toast";
 
@@ -20,7 +21,7 @@ const Register = () => {
     setLoading(true);
     try {
       await register(name, email, password, orgName);
-      toast.success("Account created successfully");
+      toast.success("Account created");
       navigate("/dashboard");
     } catch (error) {
       toast.error(error.response?.data?.error || "Registration failed");
@@ -30,86 +31,71 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center justify-center gap-2 mb-4">
-            <Activity className="w-10 h-10 text-emerald-500" />
+    <AuthShell
+      eyebrow="Create account"
+      title={<>Set up in <em>under two</em> minutes.</>}
+      description="No credit card. 5 monitors free forever."
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link to="/login" className="text-ink underline underline-offset-4 hover:text-pulse">
+            Sign in
           </Link>
-          <h1 className="text-3xl font-bold text-white">Create account</h1>
-          <p className="text-gray-400 mt-2">Start monitoring your APIs</p>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Field label="Your name" htmlFor="name" required>
+            <Input
+              id="name"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="Jane Doe"
+            />
+          </Field>
+          <Field label="Organization" htmlFor="org" required>
+            <Input
+              id="org"
+              autoComplete="organization"
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              required
+              placeholder="Acme Inc"
+            />
+          </Field>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Your Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                placeholder="John Doe"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Organization Name
-              </label>
-              <input
-                type="text"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                required
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                placeholder="Acme Inc"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-              <PasswordStrengthMeter password={password} />
-            </div>
-            <div className="flex justify-center">
-              <GetStartedButton onClick={handleSubmit} className="w-full justify-center">
-                {loading ? "Creating account..." : "Create account"}
-              </GetStartedButton>
-            </div>
-          </form>
-          <p className="text-center text-gray-400 text-sm mt-6">
-            Already have an account?{" "}
-            <Link to="/login" className="text-emerald-400 hover:text-emerald-300">
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+        <Field label="Work email" htmlFor="email" required>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@example.com"
+          />
+        </Field>
+        <Field label="Password" htmlFor="password" required help="At least 8 characters. Mix classes for a stronger score.">
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            placeholder="••••••••"
+          />
+          <PasswordStrengthMeter password={password} />
+        </Field>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          {loading ? "Creating…" : "Create account"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 };
 
