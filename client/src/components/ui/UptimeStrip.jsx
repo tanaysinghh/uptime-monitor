@@ -38,10 +38,10 @@ export const UptimeStrip = ({
   }, [uptimeDays, days]);
 
   const sizeConf = {
-    sm: { h: 24, w: 2, gap: 2 },
-    md: { h: 32, w: 3, gap: 2 },
-    lg: { h: 56, w: 5, gap: 3 },
-  }[size] || { h: 32, w: 3, gap: 2 };
+    sm: { h: 24, gap: 2 },
+    md: { h: 32, gap: 2 },
+    lg: { h: 56, gap: 3 },
+  }[size] || { h: 32, gap: 2 };
 
   const [hover, setHover] = useState(null);
 
@@ -57,7 +57,7 @@ export const UptimeStrip = ({
   return (
     <div className={cn("w-full", className)} role="img" aria-label={overallLabel}>
       <div
-        className="flex items-end w-full relative"
+        className="flex items-end w-full relative overflow-hidden"
         style={{ height: sizeConf.h, gap: sizeConf.gap }}
         onMouseLeave={() => setHover(null)}
       >
@@ -67,8 +67,8 @@ export const UptimeStrip = ({
           return (
             <div
               key={b.date}
-              className="relative flex items-end justify-center"
-              style={{ flex: 1, minWidth: sizeConf.w, height: sizeConf.h }}
+              className="relative flex items-end justify-center min-w-0"
+              style={{ flex: "1 1 0", height: sizeConf.h }}
               onMouseEnter={() => setHover({ ...b, ...s, idx: i })}
               tabIndex={-1}
             >
