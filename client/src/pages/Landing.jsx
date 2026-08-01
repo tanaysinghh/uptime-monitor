@@ -115,6 +115,15 @@ function Hero() {
   return (
     <section className="relative pt-32 pb-20 md:pt-40 md:pb-28">
       <div className="max-w-6xl mx-auto px-6">
+        <motion.div
+          initial={reduce ? {} : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.25, 1, 0.5, 1] }}
+          className="font-display text-ink text-center leading-[0.95] mb-16 md:mb-24 text-[40px] sm:text-[52px] lg:text-[64px]"
+        >
+          Uptime Monitor
+        </motion.div>
+
         <div className="grid lg:grid-cols-12 gap-12 items-end">
           <div className="lg:col-span-7">
             <motion.div
