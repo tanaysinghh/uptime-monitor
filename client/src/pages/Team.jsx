@@ -1,23 +1,21 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import api from "../api/axios";
-import { GetStartedButton } from "../components/ui/GetStartedButton";
 import toast from "react-hot-toast";
-import {
-  Users,
-  UserPlus,
-  Shield,
-  Eye,
-  Edit3,
-  Trash2,
-  Clock,
-  FileText,
-} from "lucide-react";
+import { PageHeader } from "../components/ui/Section";
+import { Button } from "../components/ui/button";
+import { Field, Input, Select } from "../components/ui/Field";
+import { Tabs } from "../components/ui/Tabs";
+import { Loading, Empty } from "../components/ui/States";
+import { UserPlus, Trash2, Users, ScrollText } from "lucide-react";
 
-const roleConfig = {
-  admin: { color: "text-red-400", bg: "bg-red-500/10", icon: Shield },
-  editor: { color: "text-blue-400", bg: "bg-blue-500/10", icon: Edit3 },
-  viewer: { color: "text-gray-400", bg: "bg-gray-500/10", icon: Eye },
+const roleConf = {
+  admin:  { label: "Admin",  hint: "Full access, billing, security" },
+  editor: { label: "Editor", hint: "Create, edit, delete monitors" },
+  viewer: { label: "Viewer", hint: "Read-only" },
 };
+
+const initialsOf = (name) => (name || "?").split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
 
 const Team = () => {
   const [members, setMembers] = useState([]);
@@ -25,12 +23,8 @@ const Team = () => {
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [activeTab, setActiveTab] = useState("members");
-  const [inviteData, setInviteData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "viewer",
-  });
+  const [inviteData, setInviteData] = useState({ name: "", email: "", password: "", role: "viewer" });
+  const reduce = useReducedMotion();
 
   const fetchData = async () => {
     try {
@@ -46,10 +40,7 @@ const Team = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -59,9 +50,7 @@ const Team = () => {
       setShowInvite(false);
       setInviteData({ name: "", email: "", password: "", role: "viewer" });
       fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to invite member");
-    }
+    } catch (error) { toast.error(error.response?.data?.error || "Failed to invite"); }
   };
 
   const handleRoleChange = async (memberId, newRole) => {
@@ -69,9 +58,7 @@ const Team = () => {
       await api.put("/team/members/" + memberId + "/role", { role: newRole });
       toast.success("Role updated");
       fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to update role");
-    }
+    } catch (error) { toast.error(error.response?.data?.error || "Failed"); }
   };
 
   const handleRemove = async (memberId) => {
@@ -80,182 +67,141 @@ const Team = () => {
       await api.delete("/team/members/" + memberId);
       toast.success("Member removed");
       fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to remove member");
-    }
+    } catch (error) { toast.error(error.response?.data?.error || "Failed"); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <Loading label="Loading team" />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Team</h1>
-          <p className="text-gray-400 mt-1">{members.length} members</p>
-        </div>
-        <GetStartedButton onClick={() => setShowInvite(!showInvite)}>
-          Invite Member
-        </GetStartedButton>
+    <div>
+      <PageHeader
+        eyebrow={<span className="font-num">{members.length.toString().padStart(2, "0")} members</span>}
+        title={<>Your <em>team</em></>}
+        description="Members, roles, and every change ever made."
+        actions={
+          <Button onClick={() => setShowInvite((s) => !s)}>
+            <UserPlus className="w-4 h-4" /> {showInvite ? "Cancel" : "Invite"}
+          </Button>
+        }
+      />
+
+      <div className="mb-6">
+        <Tabs
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: "members", label: "Members", count: members.length },
+            { value: "audit", label: "Audit log", count: auditLogs.length },
+          ]}
+        />
       </div>
 
-      <div className="flex gap-2">
-        {["members", "audit log"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={
-              "px-4 py-2 text-sm rounded-lg transition-colors capitalize " +
-              (activeTab === tab
-                ? "bg-emerald-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white")
-            }
+      <AnimatePresence>
+        {showInvite && (
+          <motion.div
+            initial={reduce ? {} : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? {} : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="hairline bg-paper mb-6"
           >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {showInvite && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">Invite New Member</h2>
-          <form onSubmit={handleInvite} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Name</label>
-              <input
-                type="text"
-                value={inviteData.name}
-                onChange={(e) => setInviteData({ ...inviteData, name: e.target.value })}
-                required
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Jane Doe"
-              />
+            <div className="px-6 py-5 hairline-b">
+              <div className="text-[10px] font-num uppercase tracking-[0.15em] text-muted">Invite member</div>
+              <h2 className="font-display text-lg mt-0.5">Add a new teammate</h2>
             </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Email</label>
-              <input
-                type="email"
-                value={inviteData.email}
-                onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
-                required
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="jane@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Temporary Password</label>
-              <input
-                type="text"
-                value={inviteData.password}
-                onChange={(e) => setInviteData({ ...inviteData, password: e.target.value })}
-                required
-                minLength={6}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="temp123456"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Role</label>
-              <select
-                value={inviteData.role}
-                onChange={(e) => setInviteData({ ...inviteData, role: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div className="md:col-span-2 flex gap-3">
-              <GetStartedButton onClick={handleInvite}>Send Invite</GetStartedButton>
-              <GetStartedButton onClick={() => setShowInvite(false)} className="bg-gray-800 hover:bg-gray-800 border border-gray-700">Cancel</GetStartedButton>
-            </div>
-          </form>
-        </div>
-      )}
+            <form onSubmit={handleInvite} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <Field label="Name" htmlFor="tm-name" required>
+                <Input id="tm-name" value={inviteData.name} onChange={(e) => setInviteData({ ...inviteData, name: e.target.value })} required placeholder="Jane Doe" />
+              </Field>
+              <Field label="Email" htmlFor="tm-email" required>
+                <Input id="tm-email" type="email" value={inviteData.email} onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })} required placeholder="jane@example.com" />
+              </Field>
+              <Field label="Temporary password" htmlFor="tm-pw" required help="They can change it after signing in.">
+                <Input id="tm-pw" value={inviteData.password} onChange={(e) => setInviteData({ ...inviteData, password: e.target.value })} required minLength={6} placeholder="temp123456" />
+              </Field>
+              <Field label="Role" htmlFor="tm-role" help={roleConf[inviteData.role]?.hint}>
+                <Select id="tm-role" value={inviteData.role} onChange={(e) => setInviteData({ ...inviteData, role: e.target.value })}>
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                  <option value="admin">Admin</option>
+                </Select>
+              </Field>
+              <div className="md:col-span-2 flex gap-3 pt-2 hairline-t -mx-6 px-6 -mb-6 pb-5 mt-2">
+                <Button type="submit">Send invite</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowInvite(false)}>Cancel</Button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {activeTab === "members" && (
-        <div className="space-y-3">
-          {members.map((member) => {
-            const config = roleConfig[member.role] || roleConfig.viewer;
-            const RoleIcon = config.icon;
-            return (
-              <div
-                key={member.id}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={"p-2 rounded-lg " + config.bg}>
-                    <RoleIcon className={"w-5 h-5 " + config.color} />
+        members.length === 0 ? (
+          <Empty icon={Users} title="Only you, for now." description="Invite teammates to share the workspace." />
+        ) : (
+          <div className="hairline bg-paper">
+            {members.map((member, i) => (
+              <div key={member.id} className={"flex items-center justify-between px-5 py-4 " + (i > 0 ? "hairline-t" : "")}>
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-9 h-9 bg-ink text-paper flex items-center justify-center text-xs font-num tracking-wider">
+                    {initialsOf(member.name)}
                   </div>
-                  <div>
-                    <p className="font-medium">{member.name}</p>
-                    <p className="text-sm text-gray-500">{member.email}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink">{member.name}</p>
+                    <p className="text-[11px] font-num text-muted truncate">{member.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <select
+                  <Select
                     value={member.role}
                     onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                    className="px-3 py-1 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="h-9 text-xs font-num uppercase tracking-wider w-32"
+                    aria-label={`Role for ${member.name}`}
                   >
                     <option value="viewer">Viewer</option>
                     <option value="editor">Editor</option>
                     <option value="admin">Admin</option>
-                  </select>
+                  </Select>
                   <button
                     onClick={() => handleRemove(member.id)}
-                    className="p-2 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
+                    className="p-2 text-muted hover:text-st-down transition-colors"
+                    aria-label={`Remove ${member.name}`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
                   </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )
       )}
 
-      {activeTab === "audit log" && (
-        <div className="space-y-3">
-          {auditLogs.map((log) => (
-            <div
-              key={log.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-gray-500" />
-                <div>
-                  <p className="text-sm">
-                    <span className="font-medium text-white">{log.User?.name || "Unknown"}</span>
-                    <span className="text-gray-400"> {log.action.replace(/_/g, " ")} </span>
-                    <span className="text-gray-500">{log.resource}</span>
+      {activeTab === "audit" && (
+        auditLogs.length === 0 ? (
+          <Empty icon={ScrollText} title="Nothing to audit yet." description="Every workspace action shows up here as it happens." />
+        ) : (
+          <div className="hairline bg-paper">
+            {auditLogs.map((log, i) => (
+              <div key={log.id} className={"flex items-start justify-between gap-4 px-5 py-3 " + (i > 0 ? "hairline-t" : "")}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink">
+                    <span className="font-medium">{log.User?.name || "Unknown"}</span>
+                    <span className="text-muted"> {log.action.replace(/_/g, " ")} </span>
+                    <span className="font-num text-muted">{log.resource}</span>
                   </p>
                   {log.details && Object.keys(log.details).length > 0 && (
-                    <p className="text-xs text-gray-600 mt-1">
-                      {JSON.stringify(log.details).substring(0, 100)}
+                    <p className="text-[11px] font-num text-muted mt-1 truncate">
+                      {JSON.stringify(log.details).slice(0, 120)}
                     </p>
                   )}
                 </div>
+                <div className="text-[11px] font-num text-muted shrink-0 whitespace-nowrap">
+                  {new Date(log.createdAt).toLocaleString()}
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Clock className="w-3 h-3" />
-                {new Date(log.createdAt).toLocaleString()}
-              </div>
-            </div>
-          ))}
-          {auditLogs.length === 0 && (
-            <div className="text-center py-16 text-gray-500">
-              <p>No audit log entries yet</p>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   );

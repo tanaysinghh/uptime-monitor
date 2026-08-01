@@ -1,17 +1,16 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import api from "../api/axios";
-import { GetStartedButton } from "../components/ui/GetStartedButton";
 import SecuritySection from "../components/SecuritySection";
 import toast from "react-hot-toast";
-import {
-  Key,
-  Copy,
-  Trash2,
-  Clock,
-  Shield,
-  Eye,
-  AlertTriangle,
-} from "lucide-react";
+import { PageHeader } from "../components/ui/Section";
+import { Button } from "../components/ui/button";
+import { Field, Input } from "../components/ui/Field";
+import { Tabs } from "../components/ui/Tabs";
+import { Loading, Empty } from "../components/ui/States";
+import { Key, Copy, Trash2, AlertTriangle, Eye, Plus, Mail } from "lucide-react";
+
+const ALL_PERMS = ["read", "write", "admin"];
 
 const Settings = () => {
   const [apiKeys, setApiKeys] = useState([]);
@@ -20,10 +19,8 @@ const Settings = () => {
   const [showForm, setShowForm] = useState(false);
   const [newKeyVisible, setNewKeyVisible] = useState(null);
   const [activeTab, setActiveTab] = useState("api-keys");
-  const [formData, setFormData] = useState({
-    name: "",
-    permissions: ["read"],
-  });
+  const [formData, setFormData] = useState({ name: "", permissions: ["read"] });
+  const reduce = useReducedMotion();
 
   const fetchData = async () => {
     try {
@@ -39,17 +36,14 @@ const Settings = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleCreateKey = async (e) => {
     e.preventDefault();
     try {
       const response = await api.post("/api-keys", formData);
       setNewKeyVisible(response.data.key);
-      toast.success("API key created - copy it now, it won't be shown again!");
+      toast.success("API key created — copy it now, it won't be shown again");
       setShowForm(false);
       setFormData({ name: "", permissions: ["read"] });
       fetchData();
@@ -62,210 +56,194 @@ const Settings = () => {
     if (!window.confirm("Revoke this API key? This cannot be undone.")) return;
     try {
       await api.put("/api-keys/" + id + "/revoke");
-      toast.success("API key revoked");
+      toast.success("Key revoked");
       fetchData();
-    } catch (error) {
-      toast.error("Failed to revoke key");
-    }
+    } catch { toast.error("Failed to revoke"); }
   };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
+    toast.success("Copied");
   };
 
   const togglePermission = (perm) => {
     const current = formData.permissions;
-    if (current.includes(perm)) {
-      setFormData({ ...formData, permissions: current.filter((p) => p !== perm) });
-    } else {
-      setFormData({ ...formData, permissions: [...current, perm] });
-    }
+    setFormData({
+      ...formData,
+      permissions: current.includes(perm) ? current.filter((p) => p !== perm) : [...current, perm],
+    });
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <Loading label="Loading settings" />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-gray-400 mt-1">API keys and subscriber management</p>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Settings"
+        description="API access, subscribers, and account security."
+      />
 
-      <div className="flex gap-2">
-        {["api-keys", "subscribers", "security"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={
-              "px-4 py-2 text-sm rounded-lg transition-colors capitalize " +
-              (activeTab === tab
-                ? "bg-emerald-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white")
-            }
-          >
-            {tab.replace("-", " ")}
-          </button>
-        ))}
+      <div className="mb-6">
+        <Tabs
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: "api-keys",    label: "API keys",    count: apiKeys.length },
+            { value: "subscribers", label: "Subscribers", count: subscribers.length },
+            { value: "security",    label: "Security" },
+          ]}
+        />
       </div>
 
       {activeTab === "api-keys" && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <GetStartedButton onClick={() => setShowForm(!showForm)}>
-              Create API Key
-            </GetStartedButton>
+        <div>
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => setShowForm((s) => !s)}>
+              <Plus className="w-4 h-4" /> {showForm ? "Cancel" : "New key"}
+            </Button>
           </div>
 
           {newKeyVisible && (
-            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                <p className="text-sm font-medium text-yellow-400">Copy your API key now - it won't be shown again</p>
+            <div className="hairline bg-st-degraded-wash p-5 mb-6">
+              <div className="flex items-center gap-2 mb-3 text-st-degraded">
+                <AlertTriangle className="w-4 h-4" strokeWidth={1.8} />
+                <span className="text-xs font-num uppercase tracking-wider">Copy your key now — it won't be shown again</span>
               </div>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 bg-gray-800 rounded-lg text-sm text-emerald-400 font-mono overflow-x-auto">
+              <div className="flex items-stretch gap-0 hairline bg-paper">
+                <code className="flex-1 px-3 py-3 text-xs font-num text-ink overflow-x-auto whitespace-nowrap">
                   {newKeyVisible}
                 </code>
                 <button
                   onClick={() => copyToClipboard(newKeyVisible)}
-                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                  className="px-4 hairline-l text-muted hover:text-ink transition-colors"
+                  aria-label="Copy key"
                 >
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-4 h-4" strokeWidth={1.8} />
                 </button>
               </div>
               <button
                 onClick={() => setNewKeyVisible(null)}
-                className="text-xs text-gray-500 mt-2 hover:text-gray-400"
+                className="text-[11px] font-num uppercase tracking-wider text-muted hover:text-ink mt-3"
               >
                 Dismiss
               </button>
             </div>
           )}
 
-          {showForm && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-lg font-semibold mb-4">New API Key</h2>
-              <form onSubmit={handleCreateKey} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Key Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Production API Key"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Permissions</label>
-                  <div className="flex gap-3">
-                    {["read", "write", "admin"].map((perm) => (
-                      <button
-                        key={perm}
-                        type="button"
-                        onClick={() => togglePermission(perm)}
-                        className={
-                          "px-4 py-2 text-sm rounded-lg border transition-colors capitalize " +
-                          (formData.permissions.includes(perm)
-                            ? "bg-emerald-600 border-emerald-500 text-white"
-                            : "bg-gray-800 border-gray-700 text-gray-400")
-                        }
-                      >
-                        {perm}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <GetStartedButton onClick={handleCreateKey}>Create Key</GetStartedButton>
-                  <GetStartedButton onClick={() => setShowForm(false)} className="bg-gray-800 hover:bg-gray-800 border border-gray-700">Cancel</GetStartedButton>
-                </div>
-              </form>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {apiKeys.map((key) => (
-              <div
-                key={key.id}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center justify-between"
+          <AnimatePresence>
+            {showForm && (
+              <motion.div
+                initial={reduce ? {} : { opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? {} : { opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="hairline bg-paper mb-6"
               >
-                <div className="flex items-center gap-4">
-                  <Key className={"w-5 h-5 " + (key.isActive ? "text-emerald-400" : "text-gray-600")} />
+                <div className="px-6 py-5 hairline-b">
+                  <div className="text-[10px] font-num uppercase tracking-[0.15em] text-muted">New API key</div>
+                  <h2 className="font-display text-lg mt-0.5">Give it a name and scope</h2>
+                </div>
+                <form onSubmit={handleCreateKey} className="p-6 space-y-5">
+                  <Field label="Key name" htmlFor="ak-name" required>
+                    <Input id="ak-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="Production API key" />
+                  </Field>
                   <div>
-                    <p className="font-medium">{key.name}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <code className="text-xs text-gray-500 font-mono">{key.keyPrefix}...</code>
-                      <span className="text-xs text-gray-600">
-                        {key.permissions.join(", ")}
-                      </span>
-                      {key.lastUsedAt && (
-                        <span className="text-xs text-gray-600">
-                          Last used {new Date(key.lastUsedAt).toLocaleDateString()}
-                        </span>
-                      )}
-                      {!key.isActive && (
-                        <span className="text-xs text-red-400">Revoked</span>
-                      )}
+                    <div className="text-xs font-medium text-muted uppercase tracking-wider mb-2">Permissions</div>
+                    <div className="flex gap-0 hairline">
+                      {ALL_PERMS.map((perm, i) => {
+                        const active = formData.permissions.includes(perm);
+                        return (
+                          <button
+                            key={perm}
+                            type="button"
+                            onClick={() => togglePermission(perm)}
+                            className={
+                              "px-5 h-10 text-xs font-num uppercase tracking-wider transition-colors flex-1 " +
+                              (i > 0 ? "hairline-l " : "") +
+                              (active ? "bg-ink text-paper" : "text-muted hover:text-ink")
+                            }
+                          >
+                            {perm}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
-                {key.isActive && (
-                  <button
-                    onClick={() => handleRevokeKey(key.id)}
-                    className="p-2 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                    title="Revoke"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-            {apiKeys.length === 0 && (
-              <div className="text-center py-16 text-gray-500">
-                <p className="text-lg">No API keys</p>
-                <p className="text-sm mt-1">Create an API key to manage monitors programmatically</p>
-              </div>
+                  <div className="flex gap-3 pt-2 hairline-t -mx-6 px-6 -mb-6 pb-5 mt-2">
+                    <Button type="submit">Create key</Button>
+                    <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+                  </div>
+                </form>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
+
+          {apiKeys.length === 0 ? (
+            <Empty
+              icon={Key}
+              title="No API keys."
+              description="Create one to manage monitors programmatically. Keys are SHA-256 hashed at rest."
+              action={<Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> New key</Button>}
+            />
+          ) : (
+            <div className="hairline bg-paper">
+              {apiKeys.map((key, i) => (
+                <div key={key.id} className={"flex items-center justify-between px-5 py-4 " + (i > 0 ? "hairline-t" : "")}>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <Key className={"w-4 h-4 shrink-0 " + (key.isActive ? "text-ink" : "text-muted")} strokeWidth={1.6} />
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink">{key.name}</p>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] font-num text-muted">
+                        <code className="text-muted">{key.keyPrefix}…</code>
+                        <span className="uppercase tracking-wider">{key.permissions.join(" · ")}</span>
+                        {key.lastUsedAt && (
+                          <span className="uppercase tracking-wider">used {new Date(key.lastUsedAt).toLocaleDateString()}</span>
+                        )}
+                        {!key.isActive && <span className="uppercase tracking-wider text-st-down">Revoked</span>}
+                      </div>
+                    </div>
+                  </div>
+                  {key.isActive && (
+                    <button
+                      onClick={() => handleRevokeKey(key.id)}
+                      className="p-2 text-muted hover:text-st-down transition-colors"
+                      aria-label="Revoke"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === "subscribers" && (
-        <div className="space-y-3">
-          {subscribers.map((sub) => (
-            <div
-              key={sub.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <Eye className="w-4 h-4 text-gray-500" />
-                <div>
-                  <p className="text-sm font-medium">{sub.email}</p>
-                  <p className="text-xs text-gray-500">
-                    {sub.confirmed ? "Confirmed" : "Pending"} - Subscribed {new Date(sub.createdAt).toLocaleDateString()}
-                  </p>
+        subscribers.length === 0 ? (
+          <Empty
+            icon={Mail}
+            title="No subscribers yet."
+            description="Visitors to your public status page can subscribe for incident email updates."
+          />
+        ) : (
+          <div className="hairline bg-paper">
+            {subscribers.map((sub, i) => (
+              <div key={sub.id} className={"flex items-center justify-between px-5 py-3 " + (i > 0 ? "hairline-t" : "")}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Eye className="w-3.5 h-3.5 text-muted shrink-0" strokeWidth={1.8} />
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink truncate">{sub.email}</p>
+                    <p className="text-[11px] font-num uppercase tracking-wider text-muted">
+                      {sub.confirmed ? "Confirmed" : "Pending"} · {new Date(sub.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {subscribers.length === 0 && (
-            <div className="text-center py-16 text-gray-500">
-              <p className="text-lg">No subscribers yet</p>
-              <p className="text-sm mt-1">Visitors can subscribe from your public status page</p>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )
       )}
 
       {activeTab === "security" && <SecuritySection />}

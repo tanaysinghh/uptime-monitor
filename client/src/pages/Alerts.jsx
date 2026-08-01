@@ -1,24 +1,22 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import api from "../api/axios";
-import { GetStartedButton } from "../components/ui/GetStartedButton";
 import toast from "react-hot-toast";
+import { PageHeader } from "../components/ui/Section";
+import { Button } from "../components/ui/button";
+import { Field, Input, Select } from "../components/ui/Field";
+import { Tabs } from "../components/ui/Tabs";
+import { Loading, Empty } from "../components/ui/States";
 import {
-  Plus,
-  Trash2,
-  Webhook,
-  MessageSquare,
-  Mail,
-  Send,
-  CheckCircle,
-  XCircle,
-  Clock,
+  Plus, Trash2, Webhook, MessageSquare, Mail, Send,
+  CheckCircle2, XCircle, Clock, Power, PowerOff, Bell,
 } from "lucide-react";
 
 const typeConfig = {
-  webhook: { icon: Webhook, label: "Webhook", color: "text-blue-400" },
-  slack: { icon: MessageSquare, label: "Slack", color: "text-purple-400" },
-  discord: { icon: MessageSquare, label: "Discord", color: "text-indigo-400" },
-  email: { icon: Mail, label: "Email", color: "text-emerald-400" },
+  webhook: { icon: Webhook,        label: "Webhook" },
+  slack:   { icon: MessageSquare,  label: "Slack" },
+  discord: { icon: MessageSquare,  label: "Discord" },
+  email:   { icon: Mail,           label: "Email" },
 };
 
 const Alerts = () => {
@@ -27,12 +25,8 @@ const Alerts = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState("channels");
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "webhook",
-    url: "",
-    cooldownMinutes: 5,
-  });
+  const [formData, setFormData] = useState({ name: "", type: "webhook", url: "", cooldownMinutes: 5 });
+  const reduce = useReducedMotion();
 
   const fetchData = async () => {
     try {
@@ -48,26 +42,14 @@ const Alerts = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const config =
-        formData.type === "webhook"
-          ? { url: formData.url }
-          : { webhookUrl: formData.url };
-
-      await api.post("/alerts/channels", {
-        name: formData.name,
-        type: formData.type,
-        config,
-        cooldownMinutes: formData.cooldownMinutes,
-      });
-      toast.success("Alert channel created");
+      const config = formData.type === "webhook" ? { url: formData.url } : { webhookUrl: formData.url };
+      await api.post("/alerts/channels", { name: formData.name, type: formData.type, config, cooldownMinutes: formData.cooldownMinutes });
+      toast.success("Channel created");
       setShowForm(false);
       setFormData({ name: "", type: "webhook", url: "", cooldownMinutes: 5 });
       fetchData();
@@ -82,216 +64,168 @@ const Alerts = () => {
       await api.delete("/alerts/channels/" + id);
       toast.success("Channel deleted");
       fetchData();
-    } catch (error) {
-      toast.error("Failed to delete channel");
-    }
+    } catch { toast.error("Failed to delete channel"); }
   };
 
   const handleTest = async (id) => {
     try {
       await api.post("/alerts/channels/" + id + "/test");
-      toast.success("Test alert sent!");
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Test failed");
-    }
+      toast.success("Test alert sent");
+    } catch (error) { toast.error(error.response?.data?.error || "Test failed"); }
   };
 
   const toggleActive = async (channel) => {
     try {
-      await api.put("/alerts/channels/" + channel.id, {
-        isActive: !channel.isActive,
-      });
+      await api.put("/alerts/channels/" + channel.id, { isActive: !channel.isActive });
       toast.success(channel.isActive ? "Channel disabled" : "Channel enabled");
       fetchData();
-    } catch (error) {
-      toast.error("Failed to update channel");
-    }
+    } catch { toast.error("Failed to update channel"); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <Loading label="Loading alerts" />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Alerts</h1>
-          <p className="text-gray-400 mt-1">Configure where notifications are sent</p>
-        </div>
-        <GetStartedButton onClick={() => setShowForm(!showForm)}>
-          Add Channel
-        </GetStartedButton>
+    <div>
+      <PageHeader
+        eyebrow="Notifications"
+        title={<>Alert <em>channels</em></>}
+        description="Where to send the signal when something starts firing."
+        actions={
+          <Button onClick={() => setShowForm((s) => !s)}>
+            <Plus className="w-4 h-4" /> {showForm ? "Cancel" : "New channel"}
+          </Button>
+        }
+      />
+
+      <div className="mb-6">
+        <Tabs
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: "channels", label: "Channels", count: channels.length },
+            { value: "logs", label: "Delivery log", count: logs.length },
+          ]}
+        />
       </div>
 
-      <div className="flex gap-2">
-        {["channels", "logs"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={
-              "px-4 py-2 text-sm rounded-lg transition-colors capitalize " +
-              (activeTab === tab
-                ? "bg-emerald-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white")
-            }
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={reduce ? {} : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? {} : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="hairline bg-paper mb-6"
           >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {showForm && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">New Alert Channel</h2>
-          <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Production Alerts"
-              />
+            <div className="px-6 py-5 hairline-b">
+              <div className="text-[10px] font-num uppercase tracking-[0.15em] text-muted">New channel</div>
+              <h2 className="font-display text-lg mt-0.5">Where should we send it?</h2>
             </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Type</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="webhook">Webhook</option>
-                <option value="slack">Slack</option>
-                <option value="discord">Discord</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">
-                {formData.type === "webhook" ? "Webhook URL" : "Incoming Webhook URL"}
-              </label>
-              <input
-                type="url"
-                value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                required
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="https://hooks.slack.com/services/..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Cooldown (minutes)</label>
-              <input
-                type="number"
-                value={formData.cooldownMinutes}
-                onChange={(e) => setFormData({ ...formData, cooldownMinutes: parseInt(e.target.value) })}
-                min={1}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-            <div className="md:col-span-2 flex gap-3">
-              <GetStartedButton onClick={handleCreate}>Create Channel</GetStartedButton>
-              <GetStartedButton onClick={() => setShowForm(false)} className="bg-gray-800 hover:bg-gray-800 border border-gray-700">Cancel</GetStartedButton>
-            </div>
-          </form>
-        </div>
-      )}
+            <form onSubmit={handleCreate} className="p-6 grid grid-cols-1 md:grid-cols-4 gap-5">
+              <Field className="md:col-span-2" label="Name" htmlFor="al-name" required>
+                <Input id="al-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="Production alerts" />
+              </Field>
+              <Field className="md:col-span-1" label="Type" htmlFor="al-type">
+                <Select id="al-type" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                  <option value="webhook">Webhook</option>
+                  <option value="slack">Slack</option>
+                  <option value="discord">Discord</option>
+                </Select>
+              </Field>
+              <Field className="md:col-span-1" label="Cooldown" htmlFor="al-cool" help="Minutes between repeats">
+                <Input id="al-cool" mono type="number" min={1} value={formData.cooldownMinutes} onChange={(e) => setFormData({ ...formData, cooldownMinutes: parseInt(e.target.value) })} />
+              </Field>
+              <Field className="md:col-span-4" label={formData.type === "webhook" ? "Webhook URL" : "Incoming webhook URL"} htmlFor="al-url" required>
+                <Input id="al-url" mono type="url" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} required placeholder="https://hooks.slack.com/services/…" />
+              </Field>
+              <div className="md:col-span-4 flex gap-3 pt-2 hairline-t -mx-6 px-6 -mb-6 pb-5 mt-2">
+                <Button type="submit">Create channel</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {activeTab === "channels" && (
-        <div className="space-y-3">
-          {channels.map((channel) => {
-            const config = typeConfig[channel.type] || typeConfig.webhook;
-            const Icon = config.icon;
-            return (
-              <div
-                key={channel.id}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-4">
-                  <Icon className={"w-5 h-5 " + config.color} />
-                  <div>
-                    <p className="font-medium">{channel.name}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className={"text-xs " + config.color}>{config.label}</span>
-                      <span className="text-xs text-gray-600">Cooldown: {channel.cooldownMinutes}m</span>
-                      <span className={"text-xs " + (channel.isActive ? "text-emerald-400" : "text-gray-500")}>
-                        {channel.isActive ? "Active" : "Disabled"}
-                      </span>
+        channels.length === 0 ? (
+          <Empty
+            icon={Bell}
+            title="No channels wired up."
+            description="Add a Slack, Discord, or generic webhook to receive incidents."
+            action={<Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> New channel</Button>}
+          />
+        ) : (
+          <div className="hairline bg-paper">
+            {channels.map((channel, i) => {
+              const conf = typeConfig[channel.type] || typeConfig.webhook;
+              const Icon = conf.icon;
+              return (
+                <div key={channel.id} className={"flex items-center justify-between px-5 py-4 " + (i > 0 ? "hairline-t" : "")}>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-8 h-8 hairline flex items-center justify-center text-ink shrink-0">
+                      <Icon className="w-4 h-4" strokeWidth={1.6} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink">{channel.name}</p>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] font-num uppercase tracking-wider text-muted">
+                        <span>{conf.label}</span>
+                        <span className="text-bone-strong">·</span>
+                        <span>cooldown {channel.cooldownMinutes}m</span>
+                        <span className="text-bone-strong">·</span>
+                        <span className={channel.isActive ? "text-st-up" : "text-muted"}>
+                          {channel.isActive ? "Active" : "Disabled"}
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleTest(channel.id)} className="p-2 text-muted hover:text-ink transition-colors" aria-label="Send test">
+                      <Send className="w-3.5 h-3.5" strokeWidth={1.8} />
+                    </button>
+                    <button onClick={() => toggleActive(channel)} className="p-2 text-muted hover:text-ink transition-colors" aria-label={channel.isActive ? "Disable" : "Enable"}>
+                      {channel.isActive ? <Power className="w-3.5 h-3.5" strokeWidth={1.8} /> : <PowerOff className="w-3.5 h-3.5" strokeWidth={1.8} />}
+                    </button>
+                    <button onClick={() => handleDelete(channel.id)} className="p-2 text-muted hover:text-st-down transition-colors" aria-label="Delete">
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleTest(channel.id)}
-                    className="p-2 text-gray-500 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-colors"
-                    title="Send test alert"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => toggleActive(channel)}
-                    className={"p-2 hover:bg-gray-800 rounded-lg transition-colors " + (channel.isActive ? "text-emerald-400" : "text-gray-500")}
-                    title={channel.isActive ? "Disable" : "Enable"}
-                  >
-                    {channel.isActive ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(channel.id)}
-                    className="p-2 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-          {channels.length === 0 && (
-            <div className="text-center py-16 text-gray-500">
-              <p className="text-lg">No alert channels configured</p>
-              <p className="text-sm mt-1">Add a webhook, Slack, or Discord channel to receive alerts</p>
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {activeTab === "logs" && (
-        <div className="space-y-3">
-          {logs.map((log) => (
-            <div
-              key={log.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                {log.status === "sent" ? (
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <XCircle className="w-4 h-4 text-red-400" />
-                )}
-                <div>
-                  <p className="text-sm font-medium">{log.Monitor?.name || "Unknown"}</p>
-                  <p className="text-xs text-gray-500">
-                    {log.AlertChannel?.name} ({log.AlertChannel?.type}) - {log.type}
-                  </p>
+        logs.length === 0 ? (
+          <Empty
+            icon={Clock}
+            title="No deliveries yet."
+            description="Alert deliveries will appear here as they fire."
+          />
+        ) : (
+          <div className="hairline bg-paper">
+            {logs.map((log, i) => (
+              <div key={log.id} className={"flex items-center justify-between px-5 py-3 " + (i > 0 ? "hairline-t" : "")}>
+                <div className="flex items-center gap-3 min-w-0">
+                  {log.status === "sent"
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-st-up shrink-0" strokeWidth={1.8} />
+                    : <XCircle className="w-3.5 h-3.5 text-st-down shrink-0" strokeWidth={1.8} />}
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink truncate">{log.Monitor?.name || "—"}</p>
+                    <p className="text-[11px] font-num uppercase tracking-wider text-muted truncate">
+                      {log.AlertChannel?.name} · {log.AlertChannel?.type} · {log.type}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-[11px] font-num text-muted shrink-0">
+                  {new Date(log.sentAt).toLocaleString()}
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Clock className="w-3 h-3" />
-                {new Date(log.sentAt).toLocaleString()}
-              </div>
-            </div>
-          ))}
-          {logs.length === 0 && (
-            <div className="text-center py-16 text-gray-500">
-              <p>No alert logs yet</p>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
