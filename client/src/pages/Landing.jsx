@@ -9,7 +9,7 @@ import { Brandmark, Wordmark } from "../components/ui/Brand";
 import {
   ArrowRight, Zap, Shield, Globe, BarChart3, Bell, Clock,
   Users, Key, Wrench, CheckCircle2, XCircle, ChevronDown,
-  Terminal, HeartPulse, Menu, X, Layers, ArrowUpRight,
+  Terminal, HeartPulse, Menu, X, Layers,
 } from "lucide-react";
 
 // ==============================================================
@@ -28,7 +28,6 @@ function Nav() {
   const links = [
     { href: "#features",     label: "Features" },
     { href: "#how-it-works", label: "How it works" },
-    { href: "#pricing",      label: "Pricing" },
     { href: "#faq",          label: "FAQ" },
   ];
 
@@ -405,76 +404,6 @@ function HowItWorks() {
 }
 
 // ==============================================================
-// Pricing — hairline table
-// ==============================================================
-function Pricing() {
-  const plans = [
-    {
-      name: "Starter", price: "Free", period: "", desc: "Side projects and single services.",
-      features: ["5 monitors", "5-minute checks", "1 alert channel", "Public status page", "7-day retention"],
-      cta: "Get started",
-      highlight: false,
-    },
-    {
-      name: "Pro", price: "$19", period: "/mo", desc: "Growing teams and production stacks.",
-      features: ["50 monitors", "30-second checks", "Unlimited channels", "Team (5 seats)", "90-day retention", "API access", "Heartbeat monitoring"],
-      cta: "Start free trial",
-      highlight: true,
-    },
-    {
-      name: "Enterprise", price: "Custom", period: "", desc: "Large orgs, SLAs, and audit demands.",
-      features: ["Unlimited monitors", "Custom branded page", "Unlimited seats", "1-year retention", "Full API", "Priority support", "SLA guarantees"],
-      cta: "Contact sales",
-      highlight: false,
-    },
-  ];
-  return (
-    <section id="pricing" className="py-24">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="max-w-2xl mb-14">
-          <div className="text-[10px] font-num uppercase tracking-[0.2em] text-muted mb-3">Pricing</div>
-          <h2 className="font-display text-4xl md:text-5xl leading-[1.02] text-ink">Simple. <em>Transparent.</em></h2>
-        </div>
-        <div className="grid md:grid-cols-3 gap-0 hairline">
-          {plans.map((p, i) => (
-            <div key={p.name} className={"p-8 " + (i > 0 ? "md:hairline-l hairline-t md:hairline-t-0 " : "") + (p.highlight ? "bg-ink text-paper relative" : "bg-paper")}>
-              {p.highlight && (
-                <div className="absolute -top-3 left-8 px-2 py-1 bg-pulse text-paper text-[10px] font-num uppercase tracking-wider">
-                  Most popular
-                </div>
-              )}
-              <h3 className={"font-display text-xl " + (p.highlight ? "text-paper" : "text-ink")}>{p.name}</h3>
-              <p className={"text-xs mt-1 " + (p.highlight ? "text-paper/60" : "text-muted")}>{p.desc}</p>
-              <div className="mt-6 mb-8">
-                <span className={"font-num text-3xl " + (p.highlight ? "text-paper" : "text-ink")}>{p.price}</span>
-                <span className={"font-num text-sm " + (p.highlight ? "text-paper/60" : "text-muted")}>{p.period}</span>
-              </div>
-              <ul className="space-y-2.5 mb-8">
-                {p.features.map((f) => (
-                  <li key={f} className={"flex items-start gap-2 text-sm " + (p.highlight ? "text-paper/80" : "text-ink")}>
-                    <CheckCircle2 className={"w-3.5 h-3.5 shrink-0 mt-0.5 " + (p.highlight ? "text-pulse" : "text-st-up")} strokeWidth={2} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              {p.highlight ? (
-                <Link to="/register" className="block">
-                  <button className="w-full h-11 bg-pulse text-paper hover:bg-paper hover:text-ink transition-colors text-sm font-medium">
-                    {p.cta}
-                  </button>
-                </Link>
-              ) : (
-                <Button asChild variant="ghost" className="w-full justify-center"><Link to="/register">{p.cta}</Link></Button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ==============================================================
 // FAQ
 // ==============================================================
 function FAQ() {
@@ -571,7 +500,6 @@ function Footer() {
             <h4 className="text-[10px] font-num uppercase tracking-[0.15em] text-muted mb-3">Product</h4>
             <div className="space-y-2">
               <a href="#features" className="block text-sm text-ink/70 hover:text-ink">Features</a>
-              <a href="#pricing" className="block text-sm text-ink/70 hover:text-ink">Pricing</a>
               <a href="#how-it-works" className="block text-sm text-ink/70 hover:text-ink">How it works</a>
               <a href="#faq" className="block text-sm text-ink/70 hover:text-ink">FAQ</a>
             </div>
@@ -613,7 +541,6 @@ const Landing = () => (
     <Contrast />
     <Features />
     <HowItWorks />
-    <Pricing />
     <FAQ />
     <FinalCTA />
     <Footer />
