@@ -113,8 +113,36 @@ function Hero() {
   }, [reduce]);
 
   return (
-    <section className="relative pt-32 pb-20 md:pt-40 md:pb-28">
-      <div className="max-w-6xl mx-auto px-6">
+    <section
+      className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden"
+      style={{
+        backgroundImage:
+          "image-set(url('/images/hero-tv-hillside.webp') type('image/webp'), url('/images/hero-tv-hillside.jpg') type('image/jpeg'))",
+        backgroundSize: "cover",
+        // TV sits around x=center, y≈36% of the source image; drop it just below
+        // the "Uptime Monitor" wordmark by anchoring the vertical to ~72%.
+        backgroundPosition: "center 72%",
+      }}
+    >
+      {/* Dark overlays — hero only. Vertical fade keeps sky/grass edges legible;
+          left-side fade darkens the body-text column without dulling the TV+wordmark axis. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(11,31,23,0.55) 0%, rgba(11,31,23,0.30) 35%, rgba(16,58,46,0.75) 88%, #103A2E 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none hidden lg:block"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(11,31,23,0.85) 0%, rgba(11,31,23,0.55) 30%, rgba(11,31,23,0) 55%, rgba(11,31,23,0.55) 88%)",
+        }}
+      />
+      <div className="relative max-w-6xl mx-auto px-6">
         <motion.div
           initial={reduce ? {} : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
