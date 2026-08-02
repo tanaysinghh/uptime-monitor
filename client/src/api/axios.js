@@ -17,9 +17,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// The server's 404 catchall (server/src/app.js) returns exactly
+// {"error":"Not found"} for any unmounted path. If we see that shape it means
+// the request landed on the fallback — almost always because VITE_API_URL is
+// misconfigured (e.g. missing /api suffix) or the client is calling a route
+// the server doesn't mount. Rewrite the message so the UI stops surfacing a
+// bare "Not found" that reads like a wrong password.
+const CATCHALL_MESSAGE =
+  "Cannot reach the server — check your connection or try again.";
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (
+      error.response?.status === 404 &&
+      error.response?.data?.error === "Not found"
+    ) {
+      error.response.data.error = CATCHALL_MESSAGE;
+    }
+
     const originalRequest = error.config;
 
     if (
