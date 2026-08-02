@@ -30,8 +30,8 @@ const App = () => {
               fontSize: "13px",
               padding: "10px 14px",
             },
-            success: { iconTheme: { primary: "#4FBF83", secondary: "#0B1F17" } },
-            error:   { iconTheme: { primary: "#E86454", secondary: "#0B1F17" } },
+            success: { iconTheme: { primary: "#4FBF83", secondary: "#103A2E" } },
+            error:   { iconTheme: { primary: "#E86454", secondary: "#103A2E" } },
           }}
         />
         <Routes>

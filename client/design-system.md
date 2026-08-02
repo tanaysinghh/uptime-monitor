@@ -10,7 +10,7 @@ Unified — no light/dark split. The site is dark-emerald everywhere.
 | Token | Value | Purpose |
 |---|---|---|
 | `--color-ink` | `#F2F4EF` | Text, primary buttons, icons — near-white with a hint of warmth |
-| `--color-paper` | `#0B1F17` | Page background — deep forest/bottle emerald |
+| `--color-paper` | `#103A2E` | Page background — deep forest/bottle emerald |
 | `--color-bone` | `#133024` | Hairline borders, subtle lifted surfaces |
 | `--color-bone-strong` | `#1E4234` | Dividers, no-data bars |
 | `--color-muted` | `#8FA69A` | Secondary text, timestamps — muted silver-mint |

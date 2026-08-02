@@ -3,7 +3,7 @@
 
 export const colors = {
   ink: "#0E0E10",
-  paper: "#F4EFE6",
+  paper: "#103A2E",
   bone: "#EAE3D2",
   boneStrong: "#D8D0BC",
   muted: "#6B655A",
