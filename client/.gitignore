@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vite mode file for the Spring Boot backend (no secrets)
+!.env.java

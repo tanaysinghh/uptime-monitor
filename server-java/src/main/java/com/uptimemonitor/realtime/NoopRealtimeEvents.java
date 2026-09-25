@@ -1,12 +1,14 @@
 package com.uptimemonitor.realtime;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.UUID;
 
-/** Used when no real-time transport is running; events are dropped. */
+/** Used when the Socket.IO server is disabled (app.socket.enabled=false); events are dropped. */
 @Component
+@ConditionalOnProperty(prefix = "app.socket", name = "enabled", havingValue = "false")
 public class NoopRealtimeEvents implements RealtimeEvents {
 
     @Override

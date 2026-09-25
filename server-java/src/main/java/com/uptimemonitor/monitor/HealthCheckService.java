@@ -32,14 +32,17 @@ import java.util.stream.Collectors;
  *
  * <p>Differences from Node: due monitors are checked concurrently (virtual threads)
  * instead of one after another, a monitor is never checked twice at once, a monitor
- * paused while its check is in flight keeps its "paused" status, and responseTimeMs
- * measures only the HTTP exchange (Node also counted the separate TLS certificate probe).
+ * paused while its check is in flight keeps its "paused" status, responseTimeMs
+ * measures only the HTTP exchange (Node also counted the separate TLS certificate probe),
+ * and lastCheckedAt is the check's start time so intervals equal to the 30s tick are honoured.
  */
 @Service
 public class HealthCheckService {
 
     private static final Logger log = LoggerFactory.getLogger(HealthCheckService.class);
     static final int FAILURE_THRESHOLD = 3;
+    /** Absorbs scheduler jitter so a monitor whose interval equals the tick isn't skipped. */
+    static final long DUE_TOLERANCE_MS = 2000;
 
     private final MonitorRepository monitors;
     private final CheckRepository checks;
@@ -74,7 +77,7 @@ public class HealthCheckService {
                 .filter(m -> {
                     long last = m.getLastCheckedAt() == null ? 0 : m.getLastCheckedAt().toEpochMilli();
                     int interval = m.getIntervalSeconds() == null ? 300 : m.getIntervalSeconds();
-                    return (now - last) / 1000.0 >= interval;
+                    return (now - last) + DUE_TOLERANCE_MS >= interval * 1000L;
                 })
                 .toList();
 
@@ -117,6 +120,7 @@ public class HealthCheckService {
             }
         }
 
+        Instant startedAt = Times.now();
         HttpProber.Result probe = prober.probe(monitor);
         Integer statusCode = probe.statusCode();
         boolean isSuccess = false;
@@ -193,9 +197,13 @@ public class HealthCheckService {
             if ("paused".equals(fresh.getStatus())) {
                 return new MonitorTransitions.Outcome(fresh, "paused", null, null);
             }
-            return success
+            MonitorTransitions.Outcome result = success
                     ? transitions.markUp(fresh, Times.now())
                     : transitions.markFailure(fresh, Times.now(), FAILURE_THRESHOLD);
+            // The interval is measured from when a check *starts*, so a 30s monitor is due on
+            // every 30s scheduler tick (stamping the end time made it wait for every other tick).
+            fresh.setLastCheckedAt(startedAt);
+            return result;
         });
         if (outcome == null) {
             return null;

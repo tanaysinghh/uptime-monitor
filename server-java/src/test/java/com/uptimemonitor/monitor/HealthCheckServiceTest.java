@@ -263,6 +263,18 @@ class HealthCheckServiceTest extends ApiTestBase {
     }
 
     @Test
+    void monitorCheckedJustUnderOneIntervalAgoIsDueOnTheNextTick() {
+        // lastCheckedAt is stamped at check start, a few ms after the previous tick fired.
+        Monitor m = fixtures.monitor(org.organizationId(), url());
+        m.setIntervalSeconds(30);
+        m.setLastCheckedAt(Instant.now().minusMillis(29_950));
+        monitors.save(m);
+        healthChecks.checkAllMonitors();
+        assertThat(reload(m).getStatus()).isEqualTo("up");
+        assertThat(reload(m).getLastCheckedAt()).isAfter(Instant.now().minusSeconds(5));
+    }
+
+    @Test
     void deletedMonitorIsSkippedGracefully() {
         Monitor ghost = fixtures.monitor(org.organizationId(), url());
         monitors.deleteById(ghost.getId());

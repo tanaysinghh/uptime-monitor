@@ -41,6 +41,10 @@ spring:
     # baseline them at V1 (the Sequelize schema) and apply only V2+.
     baseline-on-migrate: true
     baseline-version: 1
+  jackson:
+    mapper:
+      # Jackson 3 sorts keys alphabetically by default; keep declaration order (id first) like Node.
+      sort-properties-alphabetically: false
   threads:
     virtual:
       enabled: true
