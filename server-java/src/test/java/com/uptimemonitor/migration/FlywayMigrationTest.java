@@ -114,4 +114,19 @@ class FlywayMigrationTest {
             assertThat(rs.getInt(1)).isEqualTo(1);
         }
     }
+
+    @Test
+    void duplicatesReAddedByTheNodeServerAreCleanedOnEveryBoot() throws Exception {
+        createDatabase("alternating_db");
+        flyway("alternating_db").migrate();
+        try (Connection c = connect("alternating_db"); Statement s = c.createStatement()) {
+            // the Node fallback server ran sync({ alter: true }) in between
+            s.execute("ALTER TABLE \"Users\" ADD CONSTRAINT \"Users_email_key1\" UNIQUE (email)");
+        }
+        var result = flyway("alternating_db").migrate(); // next Java boot: nothing pending
+        assertThat(result.migrationsExecuted).isZero();
+        try (Connection c = connect("alternating_db")) {
+            assertThat(uniqueConstraints(c)).doesNotContain("Users_email_key1");
+        }
+    }
 }

@@ -222,6 +222,18 @@ npm test
 
 56 tests, no live DB required (models are mocked). Runs in ~2s.
 
+### Spring Boot backend (`server-java/`)
+
+A Java 21 / Spring Boot rewrite of the backend with the same API, Socket.IO events and
+database schema (Flyway-managed), so the Node server stays a drop-in fallback:
+
+```bash
+cd server-java && ./mvnw spring-boot:run   # reuses server/.env
+cd client && npm run dev:java               # points the socket at the Java server
+```
+
+See [server-java/README.md](server-java/README.md) for design decisions and differences.
+
 ### Docker Deployment
 
 ```bash
