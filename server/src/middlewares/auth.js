@@ -16,6 +16,13 @@ const authenticate = async (req, res, next) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
+    // Access tokens carry no "typ" claim. MFA challenge tokens (typ: "mfa_challenge") are
+    // signed with the same secret but must only be accepted by POST /auth/mfa/challenge,
+    // otherwise a password alone would be enough to use the API.
+    if (decoded.typ !== undefined) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
     const user = await User.findByPk(decoded.userId);
     if (!user) {
       return res.status(401).json({ error: "User not found" });

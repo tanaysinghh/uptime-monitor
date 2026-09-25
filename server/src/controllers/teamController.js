@@ -3,11 +3,25 @@ const bcrypt = require("bcryptjs");
 const { evaluatePassword } = require("../utils/passwordPolicy");
 const { handleError } = require("../utils/errorResponse");
 
+// Allowlist rather than denylist: credentials (password, mfaSecret, mfaBackupCodes) and
+// lockout state must never reach other org members, including columns added later.
+const MEMBER_ATTRIBUTES = [
+  "id",
+  "email",
+  "name",
+  "role",
+  "isVerified",
+  "organizationId",
+  "mfaEnabled",
+  "createdAt",
+  "updatedAt",
+];
+
 const getTeamMembers = async (req, res) => {
   try {
     const members = await User.findAll({
       where: { organizationId: req.user.organizationId },
-      attributes: { exclude: ["password"] },
+      attributes: MEMBER_ATTRIBUTES,
       order: [["createdAt", "ASC"]],
     });
     res.json({ members });
@@ -162,4 +176,4 @@ const getAuditLog = async (req, res) => {
   }
 };
 
-module.exports = { getTeamMembers, inviteMember, updateMemberRole, removeMember, getAuditLog };
+module.exports = { getTeamMembers, inviteMember, updateMemberRole, removeMember, getAuditLog, MEMBER_ATTRIBUTES };
