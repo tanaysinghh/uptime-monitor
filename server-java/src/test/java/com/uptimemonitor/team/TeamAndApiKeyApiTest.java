@@ -47,7 +47,8 @@ class TeamAndApiKeyApiTest extends ApiTestBase {
         assertThat(me.has("password")).isFalse();
         assertThat(me.has("mfaSecret")).isFalse();
         assertThat(me.has("mfaBackupCodes")).isFalse();
-        assertThat(me.has("role")).isTrue();
+        assertThat(me.propertyNames()).containsExactly("id", "email", "name", "role", "isVerified",
+                "organizationId", "mfaEnabled", "createdAt", "updatedAt");
     }
 
     @Test

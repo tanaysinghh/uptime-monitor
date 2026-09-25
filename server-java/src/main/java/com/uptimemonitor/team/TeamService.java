@@ -43,8 +43,24 @@ public class TeamService {
         this.json = json;
     }
 
-    public List<User> members(AuthUser actor) {
-        return users.findByOrganizationIdOrderByCreatedAtAsc(actor.organizationId());
+    /**
+     * Same allowlist as the Node server's MEMBER_ATTRIBUTES: no credentials, MFA secrets or
+     * lockout state, including for columns added later.
+     */
+    public List<Map<String, Object>> members(AuthUser actor) {
+        return users.findByOrganizationIdOrderByCreatedAtAsc(actor.organizationId()).stream().map(u -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", u.getId());
+            m.put("email", u.getEmail());
+            m.put("name", u.getName());
+            m.put("role", u.getRole());
+            m.put("isVerified", u.getIsVerified());
+            m.put("organizationId", u.getOrganizationId());
+            m.put("mfaEnabled", u.isMfaEnabled());
+            m.put("createdAt", u.getCreatedAt());
+            m.put("updatedAt", u.getUpdatedAt());
+            return m;
+        }).toList();
     }
 
     public Map<String, Object> invite(AuthUser actor, String email, String name, String password, String role,
