@@ -150,6 +150,7 @@ public class StatsService {
     }
 
     static double round2(double value) {
-        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+        // new BigDecimal(double) is the exact binary value, which is what JS toFixed(2) rounds.
+        return new BigDecimal(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 }

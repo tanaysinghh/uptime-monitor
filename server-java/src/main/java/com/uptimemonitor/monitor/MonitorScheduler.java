@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * services/scheduler.js + dataCleanup.js: HTTP checks every 30s, check-row retention
+ * services/scheduler.js + dataCleanup.js: HTTP checks and heartbeat sweeps every 30s, check-row retention
  * (90 days) nightly at 03:00. Disabled with app.scheduler.enabled=false (tests).
  * Scheduled tasks are cancelled on shutdown before the DataSource closes.
  */
@@ -26,11 +26,14 @@ public class MonitorScheduler {
     static final Duration RETENTION = Duration.ofDays(90);
 
     private final HealthCheckService healthChecks;
+    private final HeartbeatService heartbeats;
     private final CheckRepository checks;
     private final AtomicBoolean httpRunning = new AtomicBoolean();
+    private final AtomicBoolean heartbeatRunning = new AtomicBoolean();
 
-    public MonitorScheduler(HealthCheckService healthChecks, CheckRepository checks) {
+    public MonitorScheduler(HealthCheckService healthChecks, HeartbeatService heartbeats, CheckRepository checks) {
         this.healthChecks = healthChecks;
+        this.heartbeats = heartbeats;
         this.checks = checks;
         log.info("Health check scheduler started");
     }
@@ -46,6 +49,20 @@ public class MonitorScheduler {
             log.error("Scheduler error: {}", e.getMessage());
         } finally {
             httpRunning.set(false);
+        }
+    }
+
+    @Scheduled(cron = "*/30 * * * * *")
+    void runHeartbeatChecks() {
+        if (!heartbeatRunning.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            heartbeats.checkHeartbeatMonitors();
+        } catch (RuntimeException e) {
+            log.error("Heartbeat checker error: {}", e.getMessage());
+        } finally {
+            heartbeatRunning.set(false);
         }
     }
 
