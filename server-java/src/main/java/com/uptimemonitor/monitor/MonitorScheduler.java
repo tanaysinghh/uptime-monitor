@@ -28,7 +28,6 @@ public class MonitorScheduler {
     private final HealthCheckService healthChecks;
     private final HeartbeatService heartbeats;
     private final CheckRepository checks;
-    private final AtomicBoolean httpRunning = new AtomicBoolean();
     private final AtomicBoolean heartbeatRunning = new AtomicBoolean();
 
     public MonitorScheduler(HealthCheckService healthChecks, HeartbeatService heartbeats, CheckRepository checks) {
@@ -38,17 +37,13 @@ public class MonitorScheduler {
         log.info("Health check scheduler started");
     }
 
+    /** Non-blocking: checks run on virtual threads, so a slow monitor can't make the next tick skip. */
     @Scheduled(cron = "*/30 * * * * *")
     void runHttpChecks() {
-        if (!httpRunning.compareAndSet(false, true)) {
-            return; // previous tick still running
-        }
         try {
-            healthChecks.checkAllMonitors();
+            healthChecks.startDueChecks();
         } catch (RuntimeException e) {
             log.error("Scheduler error: {}", e.getMessage());
-        } finally {
-            httpRunning.set(false);
         }
     }
 

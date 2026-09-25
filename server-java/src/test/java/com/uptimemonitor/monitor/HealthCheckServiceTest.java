@@ -275,6 +275,21 @@ class HealthCheckServiceTest extends ApiTestBase {
     }
 
     @Test
+    void aSlowMonitorDoesNotBlockTheSchedulerTickOrGetCheckedTwice() throws Exception {
+        Monitor slow = fixtures.monitor(org.organizationId(), url());
+        delayMs.set(2000);
+
+        long started = System.nanoTime();
+        List<java.util.concurrent.Future<?>> first = healthChecks.startDueChecks();
+        assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(1000); // returned while in flight
+        assertThat(first).hasSize(1);
+        assertThat(healthChecks.startDueChecks()).isEmpty(); // next tick: still in flight, not re-checked
+
+        first.get(0).get();
+        assertThat(reload(slow).getStatus()).isEqualTo("up");
+    }
+
+    @Test
     void deletedMonitorIsSkippedGracefully() {
         Monitor ghost = fixtures.monitor(org.organizationId(), url());
         monitors.deleteById(ghost.getId());

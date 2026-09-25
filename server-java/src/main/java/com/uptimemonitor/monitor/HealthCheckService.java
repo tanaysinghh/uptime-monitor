@@ -70,8 +70,13 @@ public class HealthCheckService {
         this.executor = backgroundExecutor;
     }
 
-    /** Checks every active HTTP monitor whose interval has elapsed and waits for all of them. */
-    public int checkAllMonitors() {
+    /**
+     * Starts a check for every active HTTP monitor whose interval has elapsed and returns
+     * without waiting. A slow endpoint (up to its 60s timeout) therefore never delays the
+     * next scheduler tick for other monitors; the in-flight set stops a monitor from being
+     * checked twice at once.
+     */
+    public List<Future<?>> startDueChecks() {
         long now = System.currentTimeMillis();
         List<Monitor> due = monitors.findActiveHttpMonitors().stream()
                 .filter(m -> {
@@ -96,6 +101,12 @@ public class HealthCheckService {
                 }
             }));
         }
+        return running;
+    }
+
+    /** Starts due checks and waits for them (used by tests and one-off runs). */
+    public int checkAllMonitors() {
+        List<Future<?>> running = startDueChecks();
         for (Future<?> f : running) {
             try {
                 f.get();
