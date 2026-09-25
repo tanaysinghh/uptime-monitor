@@ -123,40 +123,44 @@ change is limited to `hooks/useSocket.js`.
 
 ## Behavioural differences from the Node server
 
-Response shapes are unchanged. These are deliberate fixes, each covered by a test:
+Response shapes are unchanged.
 
-* **Security**
-  * An `mfaChallengeToken` can no longer be used as a Bearer access token. In Node it
-    could, which bypassed the second factor.
-  * `/api/team/members` no longer returns `mfaSecret` or `mfaBackupCodes`.
-  * `/api/monitors/:id/checks` and `/incidents` no longer return another organization's
-    data for a known UUID; they return an empty list.
-  * Alert channel URLs pass through the SSRF guard (set `ALLOW_PRIVATE_URLS=true` locally
-    for webhooks to localhost).
-  * Unknown emails at login take the same time as known ones, so response timing no
-    longer reveals which accounts exist.
-* **Monitoring**
-  * A 30-second monitor is checked every 30 seconds; in Node it was effectively every 60.
-  * A slow endpoint (up to its timeout) no longer delays the next scheduler tick for every
-    other monitor; checks start without waiting for the previous tick to finish.
-  * `responseTimeMs` excludes the separate TLS certificate probe.
-  * Pausing a monitor while its check is in flight keeps it paused.
-  * A new heartbeat monitor gets its grace period before the first ping; Node marked it
-    down on the first tick.
-  * A heartbeat ping to a paused monitor is recorded but doesn't un-pause it.
-* **API**
-  * `/api/auth/me` returns the organization as both `Organization` (as before) and
-    `organization`. The dashboard reads the latter, so the status-page link now survives
-    a page reload.
-  * An empty public status page reports `operational`; Node reported `major_outage`.
-  * Some invalid inputs now return 400 where Node returned a database 500: alert-channel
-    updates, `/api/stats/monitors/<non-uuid>`, negative `?limit=`.
-* **Validation**
-  * When a field fails several rules, the `details` array lists one entry for it instead
-    of one per failed rule.
-* **Config**
-  * JWT secrets must be at least 32 bytes in every environment, because HS256 requires it.
-    Node only enforced this in production.
+**Fixed in both servers.** These started as Java fixes and were backported to Node, so the
+two now behave the same:
+
+* An `mfaChallengeToken` is only accepted by `/api/auth/mfa/challenge`, never as a Bearer
+  token (it used to bypass the second factor).
+* `/api/team/members` returns an allowlist of fields; no password hash, MFA secret, backup
+  codes or lockout state.
+* `/api/monitors/:id/checks` and `/incidents` return an empty list for another
+  organization's monitor instead of its data.
+* Alert channel URLs (webhook, Slack, Discord, and "test channel") pass the SSRF guard and
+  redirects aren't followed. Set `ALLOW_PRIVATE_URLS=true` locally for webhooks to localhost.
+* A 30-second monitor is checked every 30 seconds (it used to be every 60).
+* A new heartbeat monitor gets its grace period, measured from creation, before the first
+  ping.
+* A heartbeat ping to a paused monitor is recorded but doesn't un-pause it.
+* `/api/auth/me` returns the organization as both `Organization` and `organization`, so the
+  dashboard's status-page link survives a reload.
+* An empty public status page reports `operational` (it used to say `major_outage`).
+
+**Java only.** Each is covered by a test:
+
+* Unknown emails at login take the same time as known ones, so response timing doesn't
+  reveal which accounts exist.
+* A slow endpoint (up to its timeout) doesn't delay the next scheduler tick for other
+  monitors; checks run concurrently.
+* `responseTimeMs` excludes the separate TLS certificate probe. Expect a one-time step
+  down in latency charts at cutover.
+* Pausing a monitor while its check is in flight keeps it paused.
+* Some invalid inputs return 400 where Node returned a database 500: alert-channel updates,
+  `/api/stats/monitors/<non-uuid>`, negative `?limit=`.
+* When a field fails several validation rules, `details` lists it once instead of once per
+  rule.
+* JWT secrets must be at least 32 bytes in every environment, because HS256 requires it.
+  Node only enforces this in production.
+* Session IPs are stored in Java's long IPv6 form (`0:0:0:0:0:0:0:1` rather than `::1`),
+  which is cosmetic. Monitor checks send `User-Agent: UptimeMonitor/1.0` instead of axios's.
 
 ## Known limitations (same as Node unless noted)
 
@@ -164,5 +168,6 @@ Response shapes are unchanged. These are deliberate fixes, each covered by a tes
   contain only status data.
 * Rate-limit counters are in-memory and per instance.
 * `email` alert channels are accepted but nothing is sent (there's no mailer).
-* API keys can be created and revoked, but no route authenticates with them. Node's
-  `apiKeyAuth` middleware was never mounted.
+* API keys can be created and revoked, but no route authenticates with them, in either
+  server. This is intentional: Node's unused `apiKeyAuth` middleware (which ignored key
+  permissions) was removed, and API-key auth will be designed from scratch when needed.
