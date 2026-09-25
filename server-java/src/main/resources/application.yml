@@ -1,0 +1,90 @@
+# Configuration mirrors the Node server's .env contract: the same variable names
+# (DB_HOST, JWT_SECRET, CLIENT_URL, ...) are read here, so one .env works for both.
+#
+# .env lookup order (later wins): ../server/.env, server/.env, .env, server-java/.env.
+# Real OS environment variables override all of them.
+spring:
+  application:
+    name: uptime-monitor
+  config:
+    import:
+      - optional:file:../server/.env[.properties]
+      - optional:file:server/.env[.properties]
+      - optional:file:.env[.properties]
+      - optional:file:server-java/.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:uptime_monitor}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:}
+    hikari:
+      data-source-properties:
+        # Lets Postgres cast bound strings into the enum columns Sequelize created
+        # (e.g. "enum_Users_role") without per-column type mappings.
+        stringtype: unspecified
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 10000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        globally_quoted_identifiers: true
+        jdbc:
+          time_zone: UTC
+  flyway:
+    # Databases created by the Node server's sequelize.sync() have no Flyway history:
+    # baseline them at V1 (the Sequelize schema) and apply only V2+.
+    baseline-on-migrate: true
+    baseline-version: 1
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 15s
+  main:
+    banner-mode: off
+
+server:
+  port: ${PORT:5000}
+  shutdown: graceful
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    correlation: "[%X{requestId:-}] "
+  level:
+    org.hibernate.orm.deprecation: error
+
+app:
+  env: ${NODE_ENV:development}
+  client-url: ${CLIENT_URL:http://localhost:5173}
+  allow-private-urls: ${ALLOW_PRIVATE_URLS:false}
+  jwt:
+    secret: ${JWT_SECRET:}
+    refresh-secret: ${JWT_REFRESH_SECRET:}
+    expires-in: ${JWT_EXPIRES_IN:15m}
+    refresh-expires-in: ${JWT_REFRESH_EXPIRES_IN:7d}
+  mfa-encryption-key: ${MFA_ENCRYPTION_KEY:}
+  rate-limit:
+    enabled: true
+  scheduler:
+    enabled: true
+  socket:
+    enabled: true
+    port: ${SOCKET_PORT:5001}
