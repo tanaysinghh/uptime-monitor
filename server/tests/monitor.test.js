@@ -29,8 +29,9 @@ jest.mock("../src/models", () => ({
       return null;
     },
   },
-  Check: { destroy: async () => 0, findAll: async () => [] },
-  Incident: { destroy: async () => 0, findAll: async () => [] },
+  // Rows exist for any monitorId, so only the ownership check can keep them out.
+  Check: { destroy: async () => 0, findAll: async ({ where }) => [{ id: "c-1", monitorId: where.monitorId }] },
+  Incident: { destroy: async () => 0, findAll: async ({ where }) => [{ id: "i-1", monitorId: where.monitorId }] },
 }));
 
 jest.mock("../src/config/database", () => ({
@@ -116,6 +117,39 @@ describe("monitor routes", () => {
       .get("/api/monitors/not-a-uuid")
       .set("Authorization", `Bearer ${tokenFor(admin)}`);
     expect(res.status).toBe(400);
+  });
+
+  test("IDOR: checks/incidents of another org's monitor are not readable", async () => {
+    mockMonitors.set("11111111-1111-4111-8111-111111111111", {
+      id: "11111111-1111-4111-8111-111111111111",
+      organizationId: "org-2",
+    });
+    const auth = `Bearer ${tokenFor(admin)}`;
+    const checks = await request(makeApp())
+      .get("/api/monitors/11111111-1111-4111-8111-111111111111/checks")
+      .set("Authorization", auth);
+    expect(checks.status).toBe(200);
+    expect(checks.body.checks).toEqual([]);
+    const incidents = await request(makeApp())
+      .get("/api/monitors/11111111-1111-4111-8111-111111111111/incidents")
+      .set("Authorization", auth);
+    expect(incidents.body.incidents).toEqual([]);
+  });
+
+  test("checks/incidents of your own org's monitor are returned", async () => {
+    mockMonitors.set("22222222-2222-4222-8222-222222222222", {
+      id: "22222222-2222-4222-8222-222222222222",
+      organizationId: "org-1",
+    });
+    const auth = `Bearer ${tokenFor(admin)}`;
+    const checks = await request(makeApp())
+      .get("/api/monitors/22222222-2222-4222-8222-222222222222/checks")
+      .set("Authorization", auth);
+    expect(checks.body.checks).toHaveLength(1);
+    const incidents = await request(makeApp())
+      .get("/api/monitors/22222222-2222-4222-8222-222222222222/incidents")
+      .set("Authorization", auth);
+    expect(incidents.body.incidents).toHaveLength(1);
   });
 
   test("DELETE /:id rejects viewer", async () => {

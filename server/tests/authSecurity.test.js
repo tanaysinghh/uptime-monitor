@@ -294,6 +294,36 @@ describe("MFA challenge flow", () => {
   });
 });
 
+describe("MFA challenge token scope", () => {
+  test("challenge token is rejected as a Bearer token on protected routes", async () => {
+    mockUsers.clear(); mockOrgs.clear(); mockSessions.clear(); mockMfaChallenges.clear(); mockSecurityEvents.length = 0;
+    const app = makeApp();
+    await registerUser(app);
+    const u = [...mockUsers.values()][0];
+    u.mfaEnabled = true;
+    u.mfaSecret = encrypt(speakeasy.generateSecret({ length: 20 }).base32);
+
+    const loginRes = await request(app).post("/api/auth/login").send({
+      email: "u@example.com",
+      password: STRONG,
+    });
+    const challengeToken = loginRes.body.mfaChallengeToken;
+    expect(challengeToken).toBeTruthy();
+
+    const res = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${challengeToken}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Invalid token");
+  });
+
+  test("regular access tokens still authenticate", async () => {
+    mockUsers.clear(); mockOrgs.clear(); mockSessions.clear();
+    const app = makeApp();
+    const reg = await registerUser(app);
+    const res = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${reg.body.accessToken}`);
+    expect(res.status).not.toBe(401);
+  });
+});
+
 describe("session revocation", () => {
   beforeEach(() => {
     mockUsers.clear(); mockOrgs.clear(); mockSessions.clear(); mockSecurityEvents.length = 0;

@@ -128,6 +128,17 @@ const deleteMonitor = async (req, res) => {
   }
 };
 
+// Checks and incidents are keyed by monitorId only, so the monitor itself must be verified
+// to belong to the caller's organization. A foreign or unknown id yields an empty list,
+// which reveals nothing about whether the monitor exists.
+const ownsMonitor = async (req) => {
+  const monitor = await Monitor.findOne({
+    where: { id: req.params.id, organizationId: req.user.organizationId },
+    attributes: ["id"],
+  });
+  return !!monitor;
+};
+
 const getMonitorChecks = async (req, res) => {
   try {
     const { period } = req.query;
@@ -150,6 +161,10 @@ const getMonitorChecks = async (req, res) => {
         since.setHours(since.getHours() - 24);
     }
 
+    if (!(await ownsMonitor(req))) {
+      return res.json({ checks: [] });
+    }
+
     const checks = await Check.findAll({
       where: {
         monitorId: req.params.id,
@@ -166,6 +181,10 @@ const getMonitorChecks = async (req, res) => {
 
 const getMonitorIncidents = async (req, res) => {
   try {
+    if (!(await ownsMonitor(req))) {
+      return res.json({ incidents: [] });
+    }
+
     const incidents = await Incident.findAll({
       where: { monitorId: req.params.id },
       order: [["startedAt", "DESC"]],

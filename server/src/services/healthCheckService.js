@@ -9,6 +9,15 @@ const { sendAlert } = require("./alertService");
 const logger = require("../utils/logger");
 
 const FAILURE_THRESHOLD = 3;
+// Scheduler ticks fire every 30s but a check finishes a little after its tick. Without
+// slack, a monitor whose interval equals the tick looks 29.9s old on the next tick and is
+// skipped, so 30s monitors were really checked every 60s.
+const DUE_TOLERANCE_MS = 2000;
+
+const isDue = (monitor, nowMs) => {
+  const last = monitor.lastCheckedAt ? new Date(monitor.lastCheckedAt).getTime() : 0;
+  return nowMs - last + DUE_TOLERANCE_MS >= monitor.intervalSeconds * 1000;
+};
 
 const checkSSLCertificate = (hostname) => {
   return new Promise((resolve) => {
@@ -46,7 +55,9 @@ const checkSSLCertificate = (hostname) => {
   });
 };
 
-const performCheck = async (monitor) => {
+// scheduledAt: when this check was due (the scheduler tick). lastCheckedAt is stamped with
+// it rather than the completion time, so the next interval is measured tick-to-tick.
+const performCheck = async (monitor, scheduledAt = new Date()) => {
   if (monitor.maintenanceMode) {
     const now = new Date();
     if (monitor.maintenanceEndAt && now > new Date(monitor.maintenanceEndAt)) {
@@ -154,7 +165,7 @@ const performCheck = async (monitor) => {
     checkedAt: new Date(),
   });
 
-  await handleStatusChange(monitor, isSuccess);
+  await handleStatusChange(monitor, isSuccess, scheduledAt);
 
   emitCheckResult(monitor.organizationId, {
     monitorId: monitor.id,
@@ -170,7 +181,7 @@ const performCheck = async (monitor) => {
   return check;
 };
 
-const handleStatusChange = async (monitor, isSuccess) => {
+const handleStatusChange = async (monitor, isSuccess, checkedAt = new Date()) => {
   const previousStatus = monitor.status;
 
   if (isSuccess) {
@@ -206,11 +217,11 @@ const handleStatusChange = async (monitor, isSuccess) => {
 
     monitor.status = "up";
     monitor.consecutiveFailures = 0;
-    monitor.lastCheckedAt = new Date();
+    monitor.lastCheckedAt = checkedAt;
     await monitor.save();
   } else {
     monitor.consecutiveFailures += 1;
-    monitor.lastCheckedAt = new Date();
+    monitor.lastCheckedAt = checkedAt;
 
     if (monitor.consecutiveFailures >= FAILURE_THRESHOLD) {
       if (monitor.status !== "down") {
@@ -256,17 +267,12 @@ const checkAllMonitors = async () => {
     },
   });
 
-  const now = Date.now();
+  const tick = new Date();
 
   for (const monitor of monitors) {
-    const lastCheck = monitor.lastCheckedAt
-      ? new Date(monitor.lastCheckedAt).getTime()
-      : 0;
-    const elapsed = (now - lastCheck) / 1000;
-
-    if (elapsed >= monitor.intervalSeconds) {
+    if (isDue(monitor, tick.getTime())) {
       try {
-        await performCheck(monitor);
+        await performCheck(monitor, tick);
       } catch (error) {
         console.error("Error checking monitor " + monitor.id + ":", error.message);
       }
@@ -274,4 +280,4 @@ const checkAllMonitors = async () => {
   }
 };
 
-module.exports = { performCheck, checkAllMonitors, checkSSLCertificate };
+module.exports = { performCheck, checkAllMonitors, checkSSLCertificate, isDue, DUE_TOLERANCE_MS };

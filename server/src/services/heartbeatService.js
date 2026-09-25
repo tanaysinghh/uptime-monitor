@@ -120,9 +120,10 @@ const checkHeartbeatMonitors = async () => {
   const now = Date.now();
 
   for (const monitor of monitors) {
-    const lastBeat = monitor.lastHeartbeatAt
-      ? new Date(monitor.lastHeartbeatAt).getTime()
-      : 0;
+    // A monitor that has never been pinged is measured from its creation: before this it
+    // counted from the epoch and every new heartbeat monitor went down on the first tick.
+    const baseline = monitor.lastHeartbeatAt || monitor.createdAt;
+    const lastBeat = baseline ? new Date(baseline).getTime() : 0;
     const elapsed = (now - lastBeat) / 1000;
     const gracePeriod = monitor.heartbeatInterval * 1.5;
 
