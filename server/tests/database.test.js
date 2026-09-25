@@ -1,20 +1,26 @@
-describe("database config", () => {
-  const orig = process.env.DB_SSL;
-  afterEach(() => {
-    if (orig === undefined) delete process.env.DB_SSL;
-    else process.env.DB_SSL = orig;
-    jest.resetModules();
+const { buildDialectOptions } = require("../src/config/database");
+
+describe("database TLS options", () => {
+  test("DB_SSL unset: no TLS (local Postgres)", () => {
+    expect(buildDialectOptions({})).toEqual({});
   });
 
-  test("DB_SSL=true requires TLS with certificate verification (Neon)", () => {
-    process.env.DB_SSL = "true";
-    const sequelize = require("../src/config/database");
-    expect(sequelize.options.dialectOptions).toEqual({ ssl: { require: true, rejectUnauthorized: true } });
+  test("DB_SSL=true: TLS required and certificate verified", () => {
+    expect(buildDialectOptions({ DB_SSL: "true" })).toEqual({ ssl: { require: true, rejectUnauthorized: true } });
   });
 
-  test("without DB_SSL no TLS options are set (local Postgres)", () => {
-    delete process.env.DB_SSL;
-    const sequelize = require("../src/config/database");
-    expect(sequelize.options.dialectOptions).toEqual({});
+  test("DB_SSL_CA adds a trusted root and keeps verification on", () => {
+    const pem = "-----BEGIN CERTIFICATE-----\nABC\n-----END CERTIFICATE-----";
+    const opts = buildDialectOptions({ DB_SSL: "true", DB_SSL_CA: pem });
+    expect(opts.ssl).toEqual({ require: true, rejectUnauthorized: true, ca: pem });
+  });
+
+  test("DB_SSL_CA with literal \\n sequences (single-line env var) is unescaped", () => {
+    const opts = buildDialectOptions({ DB_SSL: "true", DB_SSL_CA: "-----BEGIN CERTIFICATE-----\\nABC\\n-----END CERTIFICATE-----" });
+    expect(opts.ssl.ca).toBe("-----BEGIN CERTIFICATE-----\nABC\n-----END CERTIFICATE-----");
+  });
+
+  test("DB_SSL_CA is ignored unless DB_SSL=true", () => {
+    expect(buildDialectOptions({ DB_SSL_CA: "x" })).toEqual({});
   });
 });
