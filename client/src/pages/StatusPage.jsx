@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axios";
 import toast from "react-hot-toast";
 import { motion, useReducedMotion } from "framer-motion";
 import { UptimeStrip } from "../components/ui/UptimeStrip";
@@ -33,7 +33,7 @@ const StatusPage = () => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await axios.get("/api/public/status/" + slug);
+        const response = await api.get("/public/status/" + slug);
         setData(response.data);
         setPulseTrigger((n) => n + 1);
       } catch (err) {
@@ -51,7 +51,7 @@ const StatusPage = () => {
     e.preventDefault();
     setSubLoading(true);
     try {
-      await axios.post("/api/public/status/" + slug + "/subscribe", { email: subEmail });
+      await api.post("/public/status/" + slug + "/subscribe", { email: subEmail });
       toast.success("Subscribed — you'll receive incident notifications");
       setSubEmail("");
     } catch (err) {
