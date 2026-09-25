@@ -58,6 +58,15 @@ const receiveHeartbeat = async (req, res) => {
       checkedAt: now,
     });
 
+    // A paused monitor records the ping (so its history stays complete) but stays
+    // paused: resuming is an explicit user action, not a side effect of a cron job.
+    if (monitor.status === "paused") {
+      monitor.lastHeartbeatAt = now;
+      monitor.lastCheckedAt = now;
+      await monitor.save();
+      return res.json({ status: "ok", received: now.toISOString() });
+    }
+
     if (monitor.status === "down") {
       const activeIncident = await Incident.findOne({
         where: {

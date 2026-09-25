@@ -1,4 +1,4 @@
-const axios = require("axios");
+const { postToChannel } = require("../utils/webhookPost");
 const { AlertChannel, AlertLog } = require("../models");
 const { Op } = require("sequelize");
 
@@ -79,10 +79,7 @@ const sendWebhook = async (channel, monitor, incident, alertType) => {
     timestamp: new Date().toISOString(),
   };
 
-  await axios.post(channel.config.url, payload, {
-    headers: { "Content-Type": "application/json" },
-    timeout: 10000,
-  });
+  await postToChannel(channel.config.url, payload);
 };
 
 const sendSlack = async (channel, monitor, incident, alertType) => {
@@ -120,10 +117,7 @@ const sendSlack = async (channel, monitor, incident, alertType) => {
     ],
   };
 
-  await axios.post(channel.config.webhookUrl, payload, {
-    headers: { "Content-Type": "application/json" },
-    timeout: 10000,
-  });
+  await postToChannel(channel.config.webhookUrl, payload);
 };
 
 const sendDiscord = async (channel, monitor, incident, alertType) => {
@@ -145,10 +139,7 @@ const sendDiscord = async (channel, monitor, incident, alertType) => {
     ],
   };
 
-  await axios.post(channel.config.webhookUrl, payload, {
-    headers: { "Content-Type": "application/json" },
-    timeout: 10000,
-  });
+  await postToChannel(channel.config.webhookUrl, payload);
 };
 
 module.exports = { sendAlert };

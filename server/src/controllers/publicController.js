@@ -95,8 +95,11 @@ const getPublicStatus = async (req, res) => {
 
     const allUp = monitors.every((m) => m.status === "up");
     const allDown = monitors.every((m) => m.status === "down");
+    // Array#every is true for an empty list, so without the length guard a page with no
+    // public monitors reported "major_outage".
     let overallStatus = "operational";
-    if (allDown) overallStatus = "major_outage";
+    if (monitors.length === 0) overallStatus = "operational";
+    else if (allDown) overallStatus = "major_outage";
     else if (!allUp) overallStatus = "partial_outage";
 
     res.json({

@@ -324,6 +324,20 @@ describe("MFA challenge token scope", () => {
   });
 });
 
+describe("GET /auth/me", () => {
+  test("exposes the organization as both Organization and organization", async () => {
+    mockUsers.clear(); mockOrgs.clear(); mockSessions.clear();
+    const app = makeApp();
+    const reg = await registerUser(app);
+    const u = [...mockUsers.values()][0];
+    u.Organization = { id: "o-1", slug: "org" };
+    const res = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${reg.body.accessToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.user.Organization).toEqual({ id: "o-1", slug: "org" });
+    expect(res.body.user.organization).toEqual({ id: "o-1", slug: "org" });
+  });
+});
+
 describe("session revocation", () => {
   beforeEach(() => {
     mockUsers.clear(); mockOrgs.clear(); mockSessions.clear(); mockSecurityEvents.length = 0;

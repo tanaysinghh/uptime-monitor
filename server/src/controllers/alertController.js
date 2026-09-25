@@ -92,7 +92,7 @@ const testChannel = async (req, res) => {
       return res.status(404).json({ error: "Alert channel not found" });
     }
 
-    const axios = require("axios");
+    const { postToChannel } = require("../utils/webhookPost");
     const testPayload = {
       event: "test",
       monitor: { name: "Test Monitor", url: "https://example.com", status: "down" },
@@ -102,17 +102,17 @@ const testChannel = async (req, res) => {
 
     switch (channel.type) {
       case "webhook":
-        await axios.post(channel.config.url, testPayload, { timeout: 10000 });
+        await postToChannel(channel.config.url, testPayload);
         break;
       case "slack":
-        await axios.post(channel.config.webhookUrl, {
+        await postToChannel(channel.config.webhookUrl, {
           text: ":test_tube: Test alert from UptimeMonitor - your alert channel is working!",
-        }, { timeout: 10000 });
+        });
         break;
       case "discord":
-        await axios.post(channel.config.webhookUrl, {
+        await postToChannel(channel.config.webhookUrl, {
           content: "🧪 Test alert from UptimeMonitor - your alert channel is working!",
-        }, { timeout: 10000 });
+        });
         break;
     }
 

@@ -273,7 +273,12 @@ const getMe = async (req, res) => {
       include: [Organization],
       attributes: { exclude: ["password", "mfaSecret", "mfaBackupCodes"] },
     });
-    res.json({ user });
+    // Sequelize serializes the include as "Organization", but login/register (and the
+    // dashboard's status-page link) use "organization". Expose both so a page reload
+    // doesn't lose the organization.
+    const body = user.toJSON();
+    body.organization = body.Organization;
+    res.json({ user: body });
   } catch (error) {
     handleError(res, error);
   }
