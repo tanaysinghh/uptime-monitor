@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "Monitors")
+@DynamicUpdate
 public class Monitor extends BaseEntity {
 
     private String name;

@@ -51,6 +51,15 @@ public final class RequestValidator {
         return UUID.fromString(value);
     }
 
+    /** param(name).isUUID() collected with the body errors, as express-validator does. */
+    public UUID pathUuid(String name, String value) {
+        if (value == null || !UUID_PATTERN.matcher(value).matches()) {
+            fail(name, name + " must be a UUID");
+            return null;
+        }
+        return UUID.fromString(value);
+    }
+
     public static boolean isUuid(String value) {
         return value != null && UUID_PATTERN.matcher(value).matches();
     }

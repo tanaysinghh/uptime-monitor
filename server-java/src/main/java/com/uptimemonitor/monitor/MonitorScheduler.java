@@ -1,0 +1,63 @@
+package com.uptimemonitor.monitor;
+
+import com.uptimemonitor.repository.CheckRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * services/scheduler.js + dataCleanup.js: HTTP checks every 30s, check-row retention
+ * (90 days) nightly at 03:00. Disabled with app.scheduler.enabled=false (tests).
+ * Scheduled tasks are cancelled on shutdown before the DataSource closes.
+ */
+@Component
+@EnableScheduling
+@ConditionalOnProperty(prefix = "app.scheduler", name = "enabled", havingValue = "true", matchIfMissing = true)
+public class MonitorScheduler {
+
+    private static final Logger log = LoggerFactory.getLogger(MonitorScheduler.class);
+    static final Duration RETENTION = Duration.ofDays(90);
+
+    private final HealthCheckService healthChecks;
+    private final CheckRepository checks;
+    private final AtomicBoolean httpRunning = new AtomicBoolean();
+
+    public MonitorScheduler(HealthCheckService healthChecks, CheckRepository checks) {
+        this.healthChecks = healthChecks;
+        this.checks = checks;
+        log.info("Health check scheduler started");
+    }
+
+    @Scheduled(cron = "*/30 * * * * *")
+    void runHttpChecks() {
+        if (!httpRunning.compareAndSet(false, true)) {
+            return; // previous tick still running
+        }
+        try {
+            healthChecks.checkAllMonitors();
+        } catch (RuntimeException e) {
+            log.error("Scheduler error: {}", e.getMessage());
+        } finally {
+            httpRunning.set(false);
+        }
+    }
+
+    @Scheduled(cron = "0 0 3 * * *")
+    void cleanupOldChecks() {
+        try {
+            int deleted = checks.deleteOlderThan(Instant.now().minus(RETENTION));
+            if (deleted > 0) {
+                log.info("Cleaned up {} old check records", deleted);
+            }
+        } catch (RuntimeException e) {
+            log.error("Data cleanup error: {}", e.getMessage());
+        }
+    }
+}
