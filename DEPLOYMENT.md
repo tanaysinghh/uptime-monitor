@@ -1,8 +1,20 @@
 # Deployment
 
 This project ships with a Render blueprint (`render.yaml`) that provisions the
-server (Docker), a managed Postgres, and the client (static site) with a single
-sync. Free tier is enough to demo — no card required.
+server (Docker) and the client (static site) with a single sync. The database is
+**external**: a Supabase Postgres project (free tier). Render's own free Postgres
+expires after 30 days and is then deleted, so it isn't used. No card required.
+
+> **Database (Supabase):** create a Supabase project in the same region as the
+> server (Oregon: `us-west-2`), then set the server's DB variables to its
+> **transaction pooler**: host `aws-0-<region>.pooler.supabase.com`, port `6543`,
+> database `postgres`, user `postgres.<project-ref>`, plus the project password.
+> Why the pooler: Render has no outbound IPv6, and Supabase's direct host is
+> IPv6-only. The session pooler (5432) allows only 15 connections on the free
+> compute, below the app's pool of 20. `DB_SSL=true` and
+> `DB_SSL_CA_FILE=src/config/certs/supabase-root-2021.crt` enable verified TLS
+> against Supabase's root CA. The server creates the schema itself on first
+> start (`sequelize.sync()`). The free plan caps the database at 500 MB.
 
 > **Free-tier caveat:** Render's free web services spin down after ~15 minutes
 > of inactivity. The first request after that will take 30–60s while the
@@ -15,7 +27,6 @@ sync. Free tier is enough to demo — no card required.
 2. Go to <https://dashboard.render.com/blueprints> → **New Blueprint Instance**
    → connect the fork.
 3. Render reads `render.yaml` and provisions:
-   - `uptime-monitor-db` — Postgres 16 (managed)
    - `uptime-monitor-server` — Docker web service (Node/Express)
    - `uptime-monitor-client` — static site (Vite build)
 4. Wait for the first deploy of `uptime-monitor-server` and
@@ -23,6 +34,7 @@ sync. Free tier is enough to demo — no card required.
    dashboard — you'll wire them together next.
 5. In **uptime-monitor-server → Environment**, set:
    - `CLIENT_URL` = the client's URL (e.g. `https://uptime-monitor-client.onrender.com`) — no trailing slash.
+   - `DB_PASSWORD` = the Supabase project's database password (see above).
    - `MFA_ENCRYPTION_KEY` = a 64-char hex string. Generate locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and paste. **Keep this secret** — rotating it invalidates every user's enrolled TOTP.
 6. In **uptime-monitor-client → Environment**, set:
    - `VITE_API_URL` = `<server-url>/api`
@@ -65,7 +77,10 @@ Then set `CLIENT_URL` on the Render server to the Vercel URL.
 |---|---|---|---|
 | `NODE_ENV` | server | `development` | Set to `production` in real deploys |
 | `PORT` | server | `5000` | Render injects this automatically |
-| `DB_HOST/PORT/NAME/USER/PASSWORD` | server | — | Render injects via `fromDatabase` |
+| `DB_HOST/PORT/NAME/USER` | server | — | Supabase transaction pooler (set in `render.yaml`) |
+| `DB_PASSWORD` | server | — | Supabase database password — dashboard only (`sync: false`) |
+| `DB_SSL` | server | unset | `true` = TLS required and verified |
+| `DB_SSL_CA_FILE` / `DB_SSL_CA` | server | unset | Extra trusted root CA (file path relative to `server/`, or PEM text). Supabase: `src/config/certs/supabase-root-2021.crt` |
 | `JWT_SECRET` | server | — | ≥32 chars, different from refresh secret |
 | `JWT_REFRESH_SECRET` | server | — | ≥32 chars |
 | `JWT_EXPIRES_IN` | server | `15m` | |
@@ -84,8 +99,11 @@ curl https://<server-url>/api/health
 # { "status": "ok", "db": "ok", "uptimeSeconds": 42, ... }
 ```
 
-If `db` is `down`, check the database status page in Render and the server's
-env vars.
+If `db` is `down`, check the Supabase project's status (paused/unhealthy?) and the
+server's `DB_*` env vars and logs. `SELF_SIGNED_CERT_IN_CHAIN` means the Supabase CA
+isn't configured; `ENETUNREACH` means the IPv6-only direct host is being used
+instead of the pooler; `EMAXCONNSESSION` means the session pooler (5432) is being
+used instead of the transaction pooler (6543).
 
 ## Custom domain
 

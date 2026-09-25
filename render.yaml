@@ -1,21 +1,27 @@
 # Render Blueprint for UptimeMonitor
 # https://render.com/docs/blueprint-spec
 #
-# One-click deploys the server (Docker), a managed Postgres, and the
-# client (static site built from Vite).
+# Deploys the server (Docker) and the client (static site built from Vite).
+#
+# DATABASE: external Supabase Postgres, NOT a Render-managed database.
+# Render's free Postgres expires after 30 days and is then deleted, which is what
+# took production down. The database now lives in the Supabase project
+# "uptime-monitor-prod" (org "uptime-monitor", region us-west-2 / Oregon, same
+# region as this server).
+#   - Connect through Supabase's transaction pooler (port 6543): Render has no
+#     outbound IPv6, and Supabase's direct host is IPv6-only. The session pooler
+#     (5432) caps this compute size at 15 connections, below the app's pool of 20.
+#   - TLS is required and verified against Supabase's own root CA, which ships in
+#     the image at server/src/config/certs/supabase-root-2021.crt.
+#   - DB_PASSWORD is a secret: set it in the Render dashboard (sync: false).
+#   - The schema is created by the Node server's sequelize.sync() on startup.
 #
 # After first sync, in the Render dashboard set:
 #   uptime-monitor-server  -> CLIENT_URL to the URL Render assigns the
-#                             uptime-monitor-client static site
+#                             uptime-monitor-client static site; DB_PASSWORD
 #   uptime-monitor-client  -> VITE_API_URL and VITE_SOCKET_URL to the
 #                             server's URL (build-time)
 # then trigger a manual deploy of the client so the vars are baked in.
-
-databases:
-  - name: uptime-monitor-db
-    plan: free
-    databaseName: uptime_monitor
-    user: uptime
 
 services:
   - type: web
@@ -48,25 +54,19 @@ services:
       - key: ALLOW_PRIVATE_URLS
         value: "false"
       - key: DB_HOST
-        fromDatabase:
-          name: uptime-monitor-db
-          property: host
+        value: aws-0-us-west-2.pooler.supabase.com
       - key: DB_PORT
-        fromDatabase:
-          name: uptime-monitor-db
-          property: port
+        value: "6543"
       - key: DB_NAME
-        fromDatabase:
-          name: uptime-monitor-db
-          property: database
+        value: postgres
       - key: DB_USER
-        fromDatabase:
-          name: uptime-monitor-db
-          property: user
+        value: postgres.dtkzrgmqgobhddujrvia
       - key: DB_PASSWORD
-        fromDatabase:
-          name: uptime-monitor-db
-          property: password
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: DB_SSL_CA_FILE
+        value: src/config/certs/supabase-root-2021.crt
       - key: CLIENT_URL
         sync: false
 
