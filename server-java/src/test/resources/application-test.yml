@@ -1,0 +1,22 @@
+app:
+  env: test
+  client-url: http://localhost:5173
+  allow-private-urls: false
+  jwt:
+    secret: test_secret_at_least_32_characters_long_xxx
+    refresh-secret: test_refresh_secret_at_least_32_chars_diff
+    expires-in: 15m
+    refresh-expires-in: 7d
+  mfa-encryption-key: "0000000000000000000000000000000000000000000000000000000000000000"
+  rate-limit:
+    enabled: false
+  scheduler:
+    enabled: false
+  socket:
+    enabled: false
+
+logging:
+  level:
+    root: warn
+    com.uptimemonitor: info
+    http.access: warn
