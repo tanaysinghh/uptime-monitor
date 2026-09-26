@@ -71,8 +71,10 @@ services:
         value: "6543"
       - key: DB_NAME
         value: postgres
+      # PRODUCTION since the cutover (2026-09-26): the uptime-monitor-prod project.
+      # The staging clone was postgres.aiopnkhxtvrqgfvfordi.
       - key: DB_USER
-        value: postgres.aiopnkhxtvrqgfvfordi
+        value: postgres.dtkzrgmqgobhddujrvia
       - key: DB_SSL
         value: "true"
       - key: DB_SSL_CA_FILE
@@ -81,13 +83,9 @@ services:
         value: "0"
       - key: FLYWAY_DB_PORT
         value: "5432"
+      # The production client (uptime-monitor-client), for CORS and the WebSocket origin.
       - key: CLIENT_URL
-        value: https://uptime-monitor-client-java.onrender.com
-      # Side-by-side run and soak: keep this service and the production Node service
-      # awake (free instances sleep after 15 idle minutes, which stops their schedulers).
-      # Remove to let both sleep again.
-      - key: KEEPALIVE_URLS
-        value: https://uptime-monitor-server-java.onrender.com/api/health,https://uptime-monitor-server.onrender.com/api/health
+        value: https://uptime-monitor-client.onrender.com
 
   - type: web
     name: uptime-monitor-client-java
