@@ -20,7 +20,10 @@ COPY --chown=app:app certs ./certs
 
 # Heap pinned (the AOT cache's archived heap objects are sized to it), G1 (the Serial
 # collector cannot load them), C1-only JIT to spend less of a fractional CPU compiling.
-ENV JVM_OPTS="-Xmx300m -XX:+UseG1GC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError"
+# The cache keeps only class data: cached machine code (adapters/stubs) is compiled for
+# the build host's CPU and crashed with SIGILL on a Render runtime host with fewer CPU
+# features, so code caching is off.
+ENV JVM_OPTS="-Xmx300m -XX:+UseG1GC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError -XX:+UnlockDiagnosticVMOptions -XX:-AOTAdapterCaching -XX:-AOTStubCaching"
 
 # Training run at build time: start the context without a database, record the AOT
 # cache, exit. Values below exist only for this step.
