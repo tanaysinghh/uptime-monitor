@@ -171,3 +171,11 @@ two now behave the same:
 * API keys can be created and revoked, but no route authenticates with them, in either
   server. This is intentional: Node's unused `apiKeyAuth` middleware (which ignored key
   permissions) was removed, and API-key auth will be designed from scratch when needed.
+* **Java only, blocks a production cutover:** the datasource has no TLS options yet. Node's
+  `DB_SSL` / `DB_SSL_CA_FILE` (verified TLS against the bundled Supabase root CA) have no
+  Java equivalent, and Supabase now rejects plaintext connections. Before deploying this
+  server against Supabase, add `sslmode=verify-full&sslrootcert=<ca file>` to the JDBC URL.
+  Use `prepareThreshold=0` on the transaction pooler (port 6543). Run Flyway through the
+  session pooler (5432), because its advisory lock doesn't work under transaction pooling.
+  Production is currently `sequelize.sync`-managed, not Flyway-managed, so the first Flyway
+  run there takes the V1 baseline.

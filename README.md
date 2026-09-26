@@ -220,7 +220,7 @@ cd server
 npm test
 ```
 
-56 tests, no live DB required (models are mocked). Runs in ~2s.
+113 tests, no live DB required (models are mocked). Runs in under 10s.
 
 ### Spring Boot backend (`server-java/`)
 
