@@ -109,3 +109,35 @@ used instead of the transaction pooler (6543).
 
 Add a custom domain in Render on the client (static site) service. Then update
 `CLIENT_URL` on the server service to the new domain so CORS keeps working.
+
+## Spring Boot backend: staging and cutover
+
+The Java backend (`server-java/`) runs as a separate staging Blueprint
+(`render.java-staging.yaml`, branch `staging/java`) next to production, against the
+Supabase project `uptime-monitor-java-staging`, a restored copy of production:
+
+| Service | URL |
+|---|---|
+| `uptime-monitor-server-java` | https://uptime-monitor-server-java.onrender.com |
+| `uptime-monitor-client-java` | https://uptime-monitor-client-java.onrender.com (built with `VITE_REALTIME_TRANSPORT=stomp`) |
+
+Its JWT secrets, MFA key and database password are read from the Node service
+(`fromService`), so tokens and MFA secrets work on either backend. `KEEPALIVE_URLS`
+keeps both servers awake during the side-by-side run; remove it to let them sleep.
+
+Tooling:
+* `ops/db/backup.js <prod|clone>`: snapshot-consistent backup plus manifest.
+* `ops/db/restore-test.js <dir>`: restores into a throwaway Postgres and verifies every
+  table's row count and checksum.
+* `ops/db/restore.js <dir> clone`: seeds the staging clone (never writes to prod).
+* `ops/db/flyway-rehearsal.js`, `ops/db/flyway-on-supabase.js`: Flyway on a restored copy
+  and on the clone; fails if anything but `flyway_schema_history` changes.
+* `ops/verify/stage6.js <server url> --stomp`: 44 end-to-end checks with a throwaway account.
+* `ops/verify/side-by-side.js`: compares the two backends' checks of the same monitors.
+
+Cutover (needs the owner's go-ahead) is: fresh backup and restore test; point the Java
+service at production (`DB_USER=postgres.dtkzrgmqgobhddujrvia`, `CLIENT_URL` = the
+production client); Flyway baselines production on boot (rehearsed: adds only its history
+table); verify; rebuild the production client with `VITE_API_URL` = the Java server and
+`VITE_REALTIME_TRANSPORT=stomp`; suspend the Node service so its scheduler can't run
+alongside Java's. Rollback: resume Node, revert the two client variables, rebuild.
