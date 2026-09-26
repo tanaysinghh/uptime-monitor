@@ -30,6 +30,10 @@ services:
     dockerContext: ./server-java
     healthCheckPath: /api/health
     autoDeploy: true
+    # Only server changes redeploy it (keeps the soak free of unrelated restarts).
+    buildFilter:
+      paths:
+        - server-java/**
     envVars:
       - key: NODE_ENV
         value: production
@@ -91,6 +95,9 @@ services:
     branch: staging/java
     buildCommand: cd client && npm ci && npm run build
     staticPublishPath: ./client/dist
+    buildFilter:
+      paths:
+        - client/**
     routes:
       - type: rewrite
         source: /*
