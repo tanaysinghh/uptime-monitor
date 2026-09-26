@@ -2,12 +2,14 @@
 // major version as the source) and compares every table's row count and checksum, and the
 // schema, with the backup's manifest.
 //
-//   node ops/db/restore-test.js <path/to/backup.dump> [--keep]
+//   node ops/db/restore-test.js <backup dir> [--keep]
 //
 // --keep leaves the container (uptime-restore-test, port 55432) running for the Flyway
 // rehearsal (flyway-rehearsal.js).
 const fs = require("fs");
+const path = require("path");
 const lib = require("./lib");
+const { restoreInto } = require("./restore");
 
 const CONTAINER = "uptime-restore-test";
 const PORT = 55432;
@@ -36,12 +38,11 @@ const startContainer = async (major) => {
 };
 
 (async () => {
-  const dumpFile = process.argv[2];
+  const dir = path.resolve(process.argv[2]);
   const keep = process.argv.includes("--keep");
-  const manifest = JSON.parse(fs.readFileSync(dumpFile.replace(/\.dump$/, ".manifest.json"), "utf8"));
-  if (lib.sha256File(dumpFile) !== manifest.sha256) throw new Error("dump file does not match its manifest (sha256)");
+  const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
   const major = manifest.serverVersion.split(".")[0];
-  console.log(`restoring ${manifest.dumpFile} (${manifest.target}, Postgres ${manifest.serverVersion}) into postgres:${major}`);
+  console.log(`restoring ${path.basename(dir)} (${manifest.target}, Postgres ${manifest.serverVersion}) into postgres:${major}`);
 
   await startContainer(major);
   const admin = lib.pgClient(local("postgres"));
@@ -49,23 +50,16 @@ const startContainer = async (major) => {
   await admin.query("CREATE DATABASE restored");
   await admin.end();
 
-  lib.run("pg_restore", ["--no-owner", "--no-privileges", "--exit-on-error", "-d", "restored", dumpFile], lib.libpqEnv(local()));
-
-  const c = lib.pgClient(local());
-  await c.connect();
-  const restored = await lib.tableFingerprints(c);
-  await c.end();
-  const dataProblems = lib.compareFingerprints(manifest.tables, restored);
-  const schemaSame = lib.schemaDump(local()) === manifest.schema;
-
+  const { restored, problems, schemaSame } = await restoreInto(dir, local());
   for (const [name, f] of Object.entries(restored)) {
-    const ok = manifest.tables[name] && manifest.tables[name].checksum === f.checksum && manifest.tables[name].rows === f.rows;
+    const e = manifest.tables[name];
+    const ok = e && e.rows === f.rows && e.checksum === f.checksum;
     console.log(`  ${ok ? "OK  " : "DIFF"} ${name.padEnd(16)} ${String(f.rows).padStart(8)} rows`);
   }
   console.log(`schema identical to source: ${schemaSame}`);
   if (!keep) lib.run("docker", ["rm", "-f", CONTAINER]);
-  if (dataProblems.length || !schemaSame) {
-    console.error("RESTORE TEST FAILED:\n  " + dataProblems.join("\n  "));
+  if (problems.length || !schemaSame) {
+    console.error("RESTORE TEST FAILED:\n  " + problems.join("\n  "));
     process.exit(1);
   }
   console.log(`RESTORE TEST PASSED: ${Object.keys(restored).length} tables, every row count and checksum matches` +

@@ -35,12 +35,15 @@ import java.util.stream.Collectors;
 @Service
 public class PublicStatusService {
 
+    // Days are UTC days, as in the Node server (Sequelize runs every session in UTC) and
+    // the client's uptime strips. DATE() alone would use the session time zone, which
+    // PgJDBC takes from the JVM, so a server outside UTC would shift checks between days.
     private static final String DAILY_SQL = """
-            SELECT "monitorId", DATE("checkedAt") AS day, COUNT(id) AS total,
+            SELECT "monitorId", DATE("checkedAt" AT TIME ZONE 'UTC') AS day, COUNT(id) AS total,
                    SUM(CASE WHEN "isSuccess" = true THEN 1 ELSE 0 END) AS successful
             FROM "Checks"
             WHERE "monitorId" IN (:ids) AND "checkedAt" >= :since
-            GROUP BY "monitorId", DATE("checkedAt")
+            GROUP BY "monitorId", DATE("checkedAt" AT TIME ZONE 'UTC')
             ORDER BY day ASC
             """;
 

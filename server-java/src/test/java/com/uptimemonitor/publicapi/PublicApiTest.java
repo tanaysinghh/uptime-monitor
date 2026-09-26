@@ -81,6 +81,21 @@ class PublicApiTest extends ApiTestBase {
     }
 
     @Test
+    void dailyUptimeUsesUtcDaysWhateverTheServerTimeZone() throws Exception {
+        // 20:00 UTC is already the next day in UTC+5:30 (this machine) or anywhere east of
+        // UTC+4; both checks must still land in the same UTC day, like the Node server.
+        Monitor m = monitor("tz", "up");
+        Instant day = Instant.now().truncatedTo(ChronoUnit.DAYS).minus(2, ChronoUnit.DAYS);
+        fixtures.check(m.getId(), true, 10, day.plus(10, ChronoUnit.HOURS));
+        fixtures.check(m.getId(), false, 10, day.plus(20, ChronoUnit.HOURS));
+
+        JsonNode days = api.get("/api/public/status/" + org.slug()).body().get("monitors").get(0).get("uptimeDays");
+        assertThat(days.size()).isEqualTo(1);
+        assertThat(days.get(0).get("date").asString()).isEqualTo(day.toString().substring(0, 10));
+        assertThat(days.get(0).get("uptimePercentage").asDouble()).isEqualTo(50.0);
+    }
+
+    @Test
     void overallStatusVariants() throws Exception {
         assertThat(api.get("/api/public/status/" + org.slug()).body().get("overallStatus").asString())
                 .isEqualTo("operational");

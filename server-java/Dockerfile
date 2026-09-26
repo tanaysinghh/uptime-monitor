@@ -36,7 +36,7 @@ RUN DB_HOST=localhost DB_PORT=5432 DB_NAME=x DB_USER=x DB_PASSWORD=x \
  && test -s app.aot
 
 USER app
-ENV NODE_ENV=production PORT=5000
+ENV NODE_ENV=production PORT=5000 TZ=UTC
 EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \
   CMD curl -fsS "http://localhost:${PORT}/api/health" || exit 1
