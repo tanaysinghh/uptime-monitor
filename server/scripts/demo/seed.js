@@ -35,7 +35,9 @@ const MONITORS = [
     tags: ["network"], base: 30, sigma: 0.2, diurnal: 0.08, spikeP: 0.004 },
   { key: "docker", name: "Docker Hub Registry", url: "https://registry-1.docker.io/v2/", expectedStatus: 401,
     tags: ["ci", "containers"], base: 140, sigma: 0.2, diurnal: 0.1, spikeP: 0.008 },
+  // Wikimedia answers 403 to generic HTTP client user agents.
   { key: "wiki", name: "Wikipedia", url: "https://www.wikipedia.org", expectedStatus: 200,
+    headers: { "User-Agent": "HaldenFreightUptime/1.0 (https://haldenfreight.io; ops@haldenfreight.io)" },
     tags: ["public-web"], base: 75, sigma: 0.22, diurnal: 0.14, spikeP: 0.006 },
   { key: "ghstatus", name: "GitHub Status", url: "https://www.githubstatus.com/api/v2/status.json", expectedStatus: 200,
     tags: ["vendor", "status"], base: 48, sigma: 0.2, diurnal: 0.08, spikeP: 0.005 },
@@ -266,8 +268,6 @@ const history = async (client) => {
   );
   if (oldest.rows[0].n > 0) throw new Error("History already seeded");
 
-  const end = firstLive - 60000; // leave a minute before the first real check
-  const start = end - HISTORY_DAYS * DAY;
   const rand = rng(20260926);
   const allRows = [];
   const allIncidents = [];
@@ -280,9 +280,17 @@ const history = async (client) => {
     if (!row) throw new Error("Missing monitor " + m.name);
     m.id = row.id;
     const mine = live.filter((c) => c.monitorId === m.id);
+    // Each monitor's history ends a minute before its own first real check.
+    const end = (mine.length ? mine[0].checkedAt.getTime() : firstLive) - 60000;
+    const start = end - HISTORY_DAYS * DAY;
     const ok = mine.filter((c) => c.isSuccess).map((c) => c.responseTimeMs);
-    const calib = ok.length >= 2 ? median(ok) / m.base : 1;
-    if (m.degraded) m.sloMs = Math.max(100, Math.round((m.base * calib * 2.4) / 50) * 50);
+    let calib = ok.length >= 2 ? median(ok) / m.base : 1;
+    if (m.degraded) {
+      // Live checks already see the regression (x1.25), so the normal-period base is lower,
+      // and the SLO sits at 2.2x the live median.
+      m.sloMs = Math.max(100, Math.round((m.base * calib * 2.2) / 50) * 50);
+      calib /= 1.25;
+    }
     const liveFail = mine.find((c) => !c.isSuccess);
     const extra = {
       legacyFailure: liveFail
