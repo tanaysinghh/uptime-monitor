@@ -10,7 +10,7 @@
 // Safe to run repeatedly: a second run finds no gaps.
 const { connect, rng, uuid, insertChecks, counts, ORG_SLUG } = require("./lib");
 
-const SERVER_HEALTH = "https://uptime-monitor-server.onrender.com/api/health";
+const SERVER_HEALTH = "https://uptime-monitor-server-java.onrender.com/api/health";
 const HOUR = 3600000;
 const DAY = 24 * HOUR;
 
