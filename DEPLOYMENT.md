@@ -1,7 +1,22 @@
 # Deployment
 
-This project ships with a Render blueprint (`render.yaml`) that provisions the
-server (Docker) and the client (static site) with a single sync. The database is
+## Current production (since 2026-09-26)
+
+| Piece | Where |
+|---|---|
+| API + real-time (Spring Boot, `server-java/`) | Render web service `uptime-monitor-server-java` (Docker), https://uptime-monitor-server-java.onrender.com |
+| Client | Render static site `uptime-monitor-client`, https://uptime-monitor-client.onrender.com, built with `VITE_API_URL=https://uptime-monitor-server-java.onrender.com/api` and `VITE_REALTIME_TRANSPORT=stomp` |
+| Database | Supabase project `uptime-monitor-prod` (us-west-2), Flyway-managed |
+| Legacy Node server | Render web service `uptime-monitor-server`, **suspended**, kept as the rollback option |
+
+The Java service is defined in `render.java-staging.yaml` (Blueprint "uptime-monitor-java-staging",
+branch `staging/java`; the name predates the cutover). It reads `JWT_SECRET`,
+`JWT_REFRESH_SECRET`, `MFA_ENCRYPTION_KEY` and `DB_PASSWORD` from the Node service
+(`fromService`), so keep the Node service until those are set on the Java service itself.
+Rollback steps are in [server-java/README.md](server-java/README.md#production-and-rollback).
+
+The rest of this document describes the original Render blueprint (`render.yaml`), which
+provisions the Node server (Docker) and the client (static site) with a single sync. The database is
 **external**: a Supabase Postgres project (free tier). Render's own free Postgres
 expires after 30 days and is then deleted, so it isn't used. No card required.
 
@@ -13,13 +28,14 @@ expires after 30 days and is then deleted, so it isn't used. No card required.
 > IPv6-only. The session pooler (5432) allows only 15 connections on the free
 > compute, below the app's pool of 20. `DB_SSL=true` and
 > `DB_SSL_CA_FILE=src/config/certs/supabase-root-2021.crt` enable verified TLS
-> against Supabase's root CA. The server creates the schema itself on first
-> start (`sequelize.sync()`). The free plan caps the database at 500 MB.
+> against Supabase's root CA. The Node server creates the schema itself on first
+> start (`sequelize.sync()`); the Java server runs Flyway (baseline on an existing
+> Sequelize schema). The free plan caps the database at 500 MB.
 
 > **Free-tier caveat:** Render's free web services spin down after ~15 minutes
-> of inactivity. The first request after that will take 30–60s while the
-> container cold-starts and Postgres reconnects. This is expected and only
-> affects the first hit.
+> of inactivity. The first request after that waits for the container to start:
+> 30–60s for Node, about a minute for the Java server (JVM start ~45s plus Render's
+> spin-up). This is expected and only affects the first hit.
 
 ## Option A — Render blueprint (recommended, ~5 min)
 
@@ -110,34 +126,24 @@ used instead of the transaction pooler (6543).
 Add a custom domain in Render on the client (static site) service. Then update
 `CLIENT_URL` on the server service to the new domain so CORS keeps working.
 
-## Spring Boot backend: staging and cutover
+## Spring Boot backend (production)
 
-The Java backend (`server-java/`) runs as a separate staging Blueprint
-(`render.java-staging.yaml`, branch `staging/java`) next to production, against the
-Supabase project `uptime-monitor-java-staging`, a restored copy of production:
+Moved to production on 2026-09-26 after:
+* a snapshot-consistent production backup, restored twice (local Postgres and a Supabase
+  clone) with every table's row count and checksum matching;
+* Flyway rehearsed on both copies (only `flyway_schema_history` added, no row changed);
+* verified TLS and pooler settings against Supabase, including 2,000 concurrent queries;
+* 44/44 end-to-end checks with a throwaway account against the deployed service, and
+  identical Halden Freight status data from Node and Java.
 
-| Service | URL |
-|---|---|
-| `uptime-monitor-server-java` | https://uptime-monitor-server-java.onrender.com |
-| `uptime-monitor-client-java` | https://uptime-monitor-client-java.onrender.com (built with `VITE_REALTIME_TRANSPORT=stomp`) |
-
-Its JWT secrets, MFA key and database password are read from the Node service
-(`fromService`), so tokens and MFA secrets work on either backend. `KEEPALIVE_URLS`
-keeps both servers awake during the side-by-side run; remove it to let them sleep.
-
-Tooling:
-* `ops/db/backup.js <prod|clone>`: snapshot-consistent backup plus manifest.
+Tooling (kept for future migrations and restores):
+* `ops/db/backup.js prod`: snapshot-consistent backup plus manifest.
 * `ops/db/restore-test.js <dir>`: restores into a throwaway Postgres and verifies every
-  table's row count and checksum.
-* `ops/db/restore.js <dir> clone`: seeds the staging clone (never writes to prod).
-* `ops/db/flyway-rehearsal.js`, `ops/db/flyway-on-supabase.js`: Flyway on a restored copy
-  and on the clone; fails if anything but `flyway_schema_history` changes.
+  table's row count and checksum against the manifest.
+* `ops/db/restore.js <dir> <target>`: restores into a Supabase target (never prod).
+* `ops/db/flyway-rehearsal.js`, `ops/db/flyway-on-supabase.js`: Flyway on a restored copy /
+  a clone; fail if anything but `flyway_schema_history` changes.
 * `ops/verify/stage6.js <server url> --stomp`: 44 end-to-end checks with a throwaway account.
-* `ops/verify/side-by-side.js`: compares the two backends' checks of the same monitors.
 
-Cutover (needs the owner's go-ahead) is: fresh backup and restore test; point the Java
-service at production (`DB_USER=postgres.dtkzrgmqgobhddujrvia`, `CLIENT_URL` = the
-production client); Flyway baselines production on boot (rehearsed: adds only its history
-table); verify; rebuild the production client with `VITE_API_URL` = the Java server and
-`VITE_REALTIME_TRANSPORT=stomp`; suspend the Node service so its scheduler can't run
-alongside Java's. Rollback: resume Node, revert the two client variables, rebuild.
+Backups live outside the repo in `../db-backups/` (the pre-cutover one is
+`prod-20260926T124611Z`).

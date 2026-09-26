@@ -7,7 +7,7 @@ A full-stack API health monitoring platform with real-time alerts, public status
 
 ## Live Demo
 
-🚀 **[uptime-monitor-client.onrender.com](https://uptime-monitor-client.onrender.com)** — *(URL updated once Render blueprint syncs; free tier cold-starts in ~30s on first hit)*
+🚀 **[uptime-monitor-client.onrender.com](https://uptime-monitor-client.onrender.com)** — served by the Spring Boot backend (*free tier: the first request after 15 idle minutes takes about a minute while the server wakes*)
 
 - **Try it**: register with any email → the first account becomes the org admin
 - **Public status page**: `/status/<your-org-slug>` (no login needed)
@@ -64,9 +64,10 @@ A full-stack API health monitoring platform with real-time alerts, public status
 - **Key Security** — API keys are SHA-256 hashed at rest; only shown once at creation
 
 ### Real-Time
-- **Socket.IO Live Updates** — Dashboard updates instantly when monitor status changes
+- **STOMP over WebSocket** — Every check result, status change and incident is pushed to open dashboards (the LIVE dot pulses per check); status pages refresh the moment an incident opens or resolves
+- **Authenticated channels** — Organization topics require a member's access token at CONNECT and SUBSCRIBE; clients can't publish, so events can't be injected into another dashboard
+- **Resilient connections** — Exponential-backoff reconnects, heartbeats, token refresh before reconnecting, resubscription on every connect
 - **Toast Notifications** — Real-time browser notifications for incidents and recoveries
-- **Auto-Refresh** — Dashboard and status pages poll for updates at regular intervals
 
 ### Authentication & Account Security
 - **TOTP Multi-Factor Authentication** — Optional per user, standard RFC 6238 TOTP (works with 1Password, Authy, Google Authenticator, Bitwarden). Secrets are AES-256-GCM encrypted at rest with a key kept out of the database.
@@ -83,35 +84,50 @@ A full-stack API health monitoring platform with real-time alerts, public status
 - **Rate limiting** — Per-route limiters on login (10/15min/IP), register (5/hr), refresh (20/15min), MFA challenge/verify (10/5min), heartbeat (60/min/token), subscribe (5/hr) — layered with the account lockout so brute-force needs to beat both
 - **SSRF guard** — Monitor URLs are validated against RFC1918 / loopback / link-local / CGNAT ranges and DNS-resolved before the scheduler is allowed to fetch them
 - **Role-based access control** — `admin` / `editor` / `viewer` enforced on every write route via middleware, not per-controller checks
-- **Input validation** — express-validator schemas on every endpoint; consistent 400 responses with per-field errors
+- **Input validation** — every endpoint validates its input; consistent 400 responses with per-field errors
 - **Sanitized errors** — 5xx responses return generic messages in production; every response carries an `X-Request-Id` for correlation
-- **Graceful shutdown** — SIGTERM drains the HTTP server, closes Socket.IO, stops cron jobs, and closes the DB pool within 15s
+- **Graceful shutdown** — SIGTERM drains in-flight requests, stops the scheduler, and closes the DB pool within 15s
+- **Verified database TLS** — `sslmode=verify-full` against Supabase's pinned root CA, transaction pooler with server-side prepares disabled, Flyway on its own session connection
 - **DB-checked /health** — 503 when Postgres is unreachable, so load balancers and Render probe correctly
 
 ### Infrastructure
-- **Data Retention** — Automatic cleanup of check records older than 90 days via nightly cron job
+- **Data Retention** — Automatic cleanup of check records older than 90 days via a nightly scheduled job
+- **Schema migrations** — Flyway owns the schema (versioned SQL migrations); Hibernate validates the entities against it on every boot
 - **Indexed hot paths** — Every dashboard/status/scheduler query hits an index (Checks(monitorId, checkedAt), Monitors(orgId, status), etc.)
-- **Docker Ready** — Multi-stage build, non-root user, tini as PID 1, HEALTHCHECK baked in
-- **CI on every push** — GitHub Actions runs 56 Jest tests + client lint + Vite build
-- **One-click deploy** — `render.yaml` blueprint provisions the server, managed Postgres, and static client
+- **Docker Ready** — Multi-stage build, non-root user, tini as PID 1, HEALTHCHECK baked in; the Java image ships a Java 25 AOT cache so it starts about twice as fast on a fractional-CPU host
+- **CI on every push** — GitHub Actions runs the Spring Boot suite (JUnit 5 + Testcontainers PostgreSQL), the legacy Node tests, and client lint + Vite build
+- **Render deploy** — Docker web service + static client on Render, PostgreSQL on Supabase (see [DEPLOYMENT.md](DEPLOYMENT.md))
 - **JWT Authentication** — Access tokens with 15m expiry, refresh tokens with 7d expiry, automatic token rotation
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18, Tailwind CSS, Recharts, Framer Motion, Socket.IO Client |
-| Backend | Node.js, Express, Socket.IO, node-cron |
-| Database | PostgreSQL 16, Sequelize ORM |
-| Auth | JWT (access + refresh tokens), bcrypt, API key (SHA-256) |
-| Alerting | Axios (webhook/Slack/Discord dispatch) |
-| Deployment | Docker, Docker Compose, Nginx |
+| Frontend | React 19, Tailwind CSS, Recharts, Framer Motion, STOMP.js |
+| Backend | Java 21, Spring Boot 4.1 (Web MVC, Security, Data JPA / Hibernate, WebSocket/STOMP, scheduling on virtual threads) |
+| Database | PostgreSQL 17 on Supabase, Flyway migrations |
+| Auth | JWT (access + refresh tokens, jjwt), bcrypt, TOTP MFA (AES-256-GCM secrets) |
+| Alerting | Java HttpClient (webhook/Slack/Discord dispatch) behind the SSRF guard |
+| Testing | JUnit 5, Mockito, Testcontainers |
+| Deployment | Docker (Java 25 runtime + AOT cache), Render, Supabase |
+
+The original Node.js/Express/Socket.IO/Sequelize backend is still in `server/`. It was
+replaced in production by the Spring Boot backend on 2026-09-26 and is kept, suspended, as
+a rollback option: same API, same database schema.
 
 ## Project Structure
 
 ```
 uptime-monitor/
-├── server/
+├── server-java/             # PRODUCTION backend: Spring Boot (see server-java/README.md)
+│   ├── src/main/java/com/uptimemonitor/
+│   │   ├── auth/ monitor/ alert/ team/ apikey/ publicapi/
+│   │   ├── realtime/        # STOMP gateway, auth interceptor
+│   │   └── security/ config/ domain/ repository/ web/
+│   ├── src/main/resources/db/migration/   # Flyway migrations
+│   └── Dockerfile
+├── ops/                     # Backup/restore/verification tooling
+├── server/                  # Legacy Node backend (rollback option)
 │   └── src/
 │       ├── config/          # Database configuration
 │       ├── controllers/     # Route handlers
@@ -142,7 +158,8 @@ uptime-monitor/
 │       ├── api/             # Axios instance with interceptors
 │       ├── components/      # Layout, ProtectedRoute, UI components
 │       ├── context/         # Auth context provider
-│       ├── hooks/           # useSocket hook
+│       ├── hooks/           # useRealtime hook
+│       ├── realtime/        # STOMP and Socket.IO transports (VITE_REALTIME_TRANSPORT)
 │       ├── lib/             # Utility functions
 │       └── pages/           # All page components
 │           ├── Landing.jsx
@@ -161,8 +178,10 @@ uptime-monitor/
 
 ### Prerequisites
 
-- Node.js v18+
+- JDK 21+ (the Maven wrapper is included)
+- Node.js v18+ (client)
 - PostgreSQL 16+
+- Docker (only to run the Java tests, which use Testcontainers)
 - Git
 
 ### Installation
@@ -174,7 +193,7 @@ git clone https://github.com/YOUR_USERNAME/uptime-monitor.git
 cd uptime-monitor
 ```
 
-2. **Set up the server**
+2. **Install the legacy server's dependencies** (its `.env` is also read by the Java server)
 
 ```bash
 cd server
@@ -197,10 +216,11 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 The server validates env on boot and will refuse to start with placeholder or missing values in production.
 
-5. **Start the server**
+5. **Start the server** (Spring Boot; Flyway creates the schema on first boot)
 
 ```bash
-npm run dev
+cd server-java
+./mvnw spring-boot:run      # API and STOMP (/ws) on :5000, reads server/.env
 ```
 
 6. **Set up the client** (new terminal)
@@ -208,7 +228,7 @@ npm run dev
 ```bash
 cd client
 npm install
-npm run dev
+npm run dev:java            # STOMP transport; `npm run dev` targets the legacy Node server
 ```
 
 7. **Open the app** at http://localhost:5173
@@ -216,23 +236,12 @@ npm run dev
 ### Running Tests
 
 ```bash
-cd server
-npm test
+cd server-java && ./mvnw test     # 252 tests; needs Docker (Testcontainers PostgreSQL)
+cd server && npm test             # legacy Node server: 113 tests, models mocked
 ```
 
-113 tests, no live DB required (models are mocked). Runs in under 10s.
-
-### Spring Boot backend (`server-java/`)
-
-A Java 21 / Spring Boot rewrite of the backend with the same API, Socket.IO events and
-database schema (Flyway-managed), so the Node server stays a drop-in fallback:
-
-```bash
-cd server-java && ./mvnw spring-boot:run   # reuses server/.env
-cd client && npm run dev:java               # points the socket at the Java server
-```
-
-See [server-java/README.md](server-java/README.md) for design decisions and differences.
+See [server-java/README.md](server-java/README.md) for the backend's design decisions and
+its differences from the Node server.
 
 ### Docker Deployment
 
@@ -248,7 +257,8 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the Render blueprint one-click deploy, Do
 
 ## Database Schema
 
-The application uses 9 Sequelize models:
+The schema is managed by Flyway (`server-java/src/main/resources/db/migration`) and mapped
+by JPA entities (`server-java/.../domain`):
 
 - **User** — Authentication, roles (admin/editor/viewer), org membership
 - **Organization** — Multi-tenant orgs with slug, branding
@@ -366,24 +376,24 @@ The application uses 9 Sequelize models:
                     │   - Settings            │
                     │   - Public Status Page  │
                     └──────────┬──────────────┘
-                               │ HTTP + WebSocket
+                               │ HTTPS + WebSocket (STOMP)
                     ┌──────────┴──────────────┐
-                    │   Express API Server    │
+                    │  Spring Boot API Server │
                     │   - REST API (11 route  │
                     │     groups)             │
-                    │   - Socket.IO           │
-                    │   - JWT + API Key Auth  │
+                    │   - STOMP broker (/ws)  │
+                    │   - JWT auth, RBAC      │
                     └──────────┬──────────────┘
-                               │ Sequelize ORM
+                               │ JPA / Hibernate, TLS (verify-full)
                     ┌──────────┴──────────────┐
-                    │   PostgreSQL Database   │
-                    │   - 10 tables           │
+                    │  PostgreSQL (Supabase)  │
+                    │   - Flyway-managed      │
                     │   - JSONB for flexible  │
                     │     config storage      │
                     └─────────────────────────┘
 
-    Background Services:
-    ├── Health Check Scheduler (every 30s)
+    Background Services (Spring @Scheduled, checks on virtual threads):
+    ├── Health Check Scheduler (every 30s, checks run concurrently)
     ├── Heartbeat Monitor Checker (every 30s)
     ├── Data Cleanup (daily at 3 AM)
     └── Alert Dispatch (on status change)
@@ -394,24 +404,25 @@ The application uses 9 Sequelize models:
 - **JSONB for assertions and config** — Flexible schema for alert-channel configs and monitor assertions without migration churn
 - **Consecutive failure threshold** — 3 failures before marking down to filter network blips; single miss for heartbeats since those are already coarse
 - **SHA-256 hashed API keys** — Keys shown once at creation; only the hash is stored, so a DB dump can't be replayed
-- **node-cron over BullMQ** — Same dev machine can run everything (no Redis) and 30s tick loops are simpler to reason about than a queue at this scale
-- **Sequelize `sync({ alter: true })` in dev only** — Fast iteration locally; production uses plain `sync()` and the "at scale" section below covers the real migration story
+- **In-process scheduler over a queue** — Spring `@Scheduled` ticks every 30s and starts due checks on virtual threads, so a slow endpoint never delays the next tick; no Redis needed at this scale
+- **Flyway over ORM auto-sync** — Versioned SQL migrations; Hibernate only validates. The existing Node-created production database was baselined without touching a row (rehearsed on a restored copy first)
+- **STOMP over Socket.IO** — One port instead of two, standard framing, and channel-level authorization the Socket.IO rooms never had
 - **Refresh token rotation** — A new refresh token is issued on every refresh, shortening the useful lifetime of a stolen one
 - **Rate limits scoped per surface** — Auth (10/15min), register (5/hr), heartbeat (60/min/token), subscribe (5/hr) — each tuned for its abuse case
-- **SSRF guard runs before any outbound axios call** — DNS resolution + private-range check happens on monitor create/update, not just at check time
+- **SSRF guard runs before any outbound call** — DNS resolution + private-range check happens on monitor create/update, not just at check time
 - **Central error middleware, not per-controller `error.message` leaks** — Every 5xx in production returns `{ error: "Internal server error", requestId }`; the real error is logged with the request ID so triage still works
 
 ## What I'd Do Differently at Scale
 
 Interviewer question I'm ready for: *"This works for a demo. What breaks first?"*
 
-- **Tokens in `localStorage`** — Vulnerable to XSS. Real fix: httpOnly, SameSite=Lax cookies for both access and refresh, with a `/csrf-token` endpoint issuing a double-submit token. Wasn't done here because it turns "one commit" into a rework of the axios interceptor, socket auth, and the entire dev/prod cookie config.
+- **Tokens in `localStorage`** — Vulnerable to XSS. Real fix: httpOnly, SameSite=Lax cookies for both access and refresh, with a `/csrf-token` endpoint issuing a double-submit token. Wasn't done here because it turns "one commit" into a rework of the axios interceptor, WebSocket auth, and the entire dev/prod cookie config.
 - **MFA_ENCRYPTION_KEY in an env var** — Fine for a single-node deploy; at scale I'd move it to a KMS (AWS KMS, GCP Cloud KMS, HashiCorp Vault) with envelope encryption per user, so a single compromised env var doesn't disclose every enrolled TOTP secret.
-- **In-memory rate-limit store** — `express-rate-limit` defaults to memory, so limits reset per process. Multi-instance deploys need a Redis store to share counters; MFA and login limiters especially need shared state or an attacker can hop instances.
-- **`sequelize.sync({ alter: true })` in dev** — Fast now, dangerous later. Move to `sequelize-cli` migrations with a proper up/down file per schema change so production deploys are reviewable and reversible.
-- **Sequential scheduler loop** — `checkAllMonitors` awaits monitors one at a time; at ~500 monitors a 30s tick can't keep up. Fix: bounded `Promise.allSettled` batches (say 25 in flight), then move to a real queue (BullMQ + Redis) when checks need retries, backoff, or worker distribution across processes.
+- **In-memory rate-limit store** — Bucket4j buckets live in memory, so limits reset per process. Multi-instance deploys need a Redis store to share counters; MFA and login limiters especially need shared state or an attacker can hop instances.
+- **Single scheduler instance** — Checks now run concurrently on virtual threads, but the scheduler runs in one process. A second instance would check everything twice; scaling out needs leader election (e.g. a Postgres advisory lock per tick) or a real queue when checks need retries, backoff, or worker distribution.
+- **In-memory STOMP broker** — Fine for one instance; several instances need a relay (RabbitMQ/ActiveMQ STOMP) so every client sees every event.
 - **Alert dedupe is per-channel cooldown, not per-incident** — Two down->up flaps in the cooldown window swallow the second alert. Better: alert per incident state transition, with a "flap detected" grouping.
-- **Public status page fires N daily-stat queries** — Fine at ~20 monitors, poor at 500. Would collapse into a single `GROUP BY monitorId, DATE(checkedAt)` and add a materialized view refreshed every few minutes.
+- **Public status page aggregates on every request** — One grouped query now (UTC days), but at thousands of monitors a materialized view refreshed every few minutes would be cheaper.
 - **No metrics endpoint** — `/metrics` in Prometheus format (request counts, latency histograms, check outcomes, scheduler lag) would let this thing monitor itself.
 - **Frontend accessibility** — Nav has no `aria-current`, no skip link. Contrast is fine (gray-100 on gray-950) but the app hasn't been tested with a screen reader end-to-end.
 

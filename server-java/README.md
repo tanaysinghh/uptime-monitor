@@ -1,10 +1,12 @@
 # UptimeMonitor — Spring Boot backend
 
-A full rewrite of `../server` (Node/Express/Sequelize) on **Java 21 + Spring Boot 4.1 +
-Spring Data JPA + PostgreSQL**. It serves the same REST API, pushes the same real-time
-events over STOMP/WebSocket, and uses the **same database schema**, so the Node server
-remains a drop-in fallback against the same data. The client picks its real-time transport
-at build time (`VITE_REALTIME_TRANSPORT`), so switching backends is an env change.
+**The production backend** (since the cutover on 2026-09-26): a full rewrite of `../server`
+(Node/Express/Sequelize) on **Java 21 + Spring Boot 4.1 + Spring Data JPA + PostgreSQL**,
+deployed on Render against the Supabase database. It serves the same REST API, pushes the
+same real-time events over STOMP/WebSocket, and uses the **same database schema**, so the
+Node server (kept suspended on Render) remains a rollback option against the same data.
+The client picks its real-time transport at build time (`VITE_REALTIME_TRANSPORT`), so
+switching backends is an env change; see "Production and rollback" below.
 
 ## Quick start (local)
 
@@ -26,7 +28,7 @@ cd client
 npm run dev:java                # = vite --mode java (client/.env.java: STOMP transport)
 ```
 
-`npm run dev` still targets the Node server. Don't run both servers at once: they both
+`npm run dev` targets the legacy Node server. Don't run both servers at once: they both
 use port 5000 by default.
 
 Health: `GET http://localhost:5000/api/health` (same body as Node) and
@@ -57,7 +59,11 @@ Flyway owns the schema; `sequelize.sync({ alter: true })` is gone.
   `flyway_schema_history` table.
 * `V2` drops the numbered duplicate UNIQUE constraints (`Users_email_key1..N`) that
   `sync({ alter: true })` accumulated. The `afterMigrate` callback repeats this on every
-  boot, because the Node server re-adds them whenever it runs.
+  boot, in case the Node server is run against the database again (development runs
+  `sync({ alter: true })`, which re-adds them).
+* Production was baselined on 2026-09-26: V1 recorded as the baseline, V2 applied (a no-op
+  there). Rehearsed first on a restored copy and on a Supabase clone, where every existing
+  table's row count and checksum was unchanged and only `flyway_schema_history` was added.
 * Hibernate validates the entities against the schema on startup (`ddl-auto: validate`).
 * New schema changes: add `V3__description.sql`, and so on. Never edit an applied migration.
 
@@ -108,8 +114,13 @@ connection (its advisory lock needs a session). See `config/DatabaseConnectionSe
 * Checks run concurrently instead of one after another.
 * Graceful shutdown (`server.shutdown=graceful`, 15s). The scheduler stops before the
   DataSource closes.
-* Container image (`Dockerfile`): Java 25 runtime with an AOT cache recorded at build time,
-  sized for a 512 MB instance. Startup on 0.1 CPU drops from ~165s to ~95s with it.
+* Container image (`Dockerfile`): Java 25 runtime with an AOT cache (class and heap data;
+  no cached machine code, which is CPU-specific) recorded at build time, sized for a 512 MB
+  instance. On Render's free instance the app starts in about 45-50s; under a hard 0.1-CPU
+  limit locally, ~95s with the cache versus ~165s without.
+* `KEEPALIVE_URLS` (optional, unset in production) pings the listed URLs every 10 minutes
+  to keep sleep-on-idle hosts awake. An always-awake free instance uses most of Render's
+  750 free hours a month.
 
 ## Node → Java map
 
@@ -157,8 +168,8 @@ two now behave the same:
   reveal which accounts exist.
 * A slow endpoint (up to its timeout) doesn't delay the next scheduler tick for other
   monitors; checks run concurrently.
-* `responseTimeMs` excludes the separate TLS certificate probe. Expect a one-time step
-  down in latency charts at cutover.
+* `responseTimeMs` excludes the separate TLS certificate probe, so latency charts show a
+  one-time step down at the 2026-09-26 cutover.
 * Pausing a monitor while its check is in flight keeps it paused.
 * Some invalid inputs return 400 where Node returned a database 500: alert-channel updates,
   `/api/stats/monitors/<non-uuid>`, negative `?limit=`.
@@ -181,5 +192,19 @@ two now behave the same:
 * API keys can be created and revoked, but no route authenticates with them, in either
   server. This is intentional: Node's unused `apiKeyAuth` middleware (which ignored key
   permissions) was removed, and API-key auth will be designed from scratch when needed.
-* Production is currently `sequelize.sync`-managed, not Flyway-managed, so the first Flyway
-  run there takes the V1 baseline (rehearsed on a restored copy first).
+
+## Production and rollback
+
+Render services: `uptime-monitor-server-java` (this backend, Docker, from `render.java-staging.yaml`),
+`uptime-monitor-client` (built with `VITE_API_URL=https://uptime-monitor-server-java.onrender.com/api`
+and `VITE_REALTIME_TRANSPORT=stomp`), and `uptime-monitor-server` (Node, suspended).
+The Java service reads its JWT secrets, MFA key and database password from the Node
+service's environment (`fromService`), so don't delete the Node service without first
+setting those values on the Java service directly.
+
+Rollback to Node:
+1. `uptime-monitor-server` → Settings → Resume Web Service.
+2. `uptime-monitor-server-java` → Settings → Suspend Web Service (so only one scheduler runs).
+3. `uptime-monitor-client` → Environment: `VITE_API_URL=https://uptime-monitor-server.onrender.com/api`,
+   delete `VITE_REALTIME_TRANSPORT` → Save and deploy.
+Node accepts the Flyway-managed schema as is (its `sync()` ignores `flyway_schema_history`).
