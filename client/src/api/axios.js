@@ -17,6 +17,44 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// One refresh at a time: refresh tokens rotate, so two concurrent refreshes with the
+// same token would race. Callers that arrive while one is in flight share its result.
+let refreshInFlight = null;
+
+/**
+ * Exchanges the stored refresh token for a new pair and returns the new access token.
+ * On failure the session is over: tokens are cleared and the browser goes to /login.
+ */
+export const refreshAccessToken = () => {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const refreshToken = localStorage.getItem("refreshToken");
+        if (!refreshToken) throw new Error("No refresh token");
+
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
+          refreshToken,
+        });
+
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", newRefreshToken);
+        return accessToken;
+      } catch (refreshError) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+        throw refreshError;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+};
+
 // The server's 404 catchall (server/src/app.js) returns exactly
 // {"error":"Not found"} for any unmounted path. If we see that shape it means
 // the request landed on the fallback — almost always because VITE_API_URL is
@@ -25,6 +63,19 @@ api.interceptors.request.use((config) => {
 // bare "Not found" that reads like a wrong password.
 const CATCHALL_MESSAGE =
   "Cannot reach the server — check your connection or try again.";
+
+// 401s that mean "your access token is no good" (the auth middleware's messages), as
+// opposed to a wrong password or MFA code on an /auth/* endpoint. Only these are worth
+// a refresh and retry; retrying a wrong code would count as a second failed attempt.
+const TOKEN_ERRORS = new Set([
+  "No token provided",
+  "Invalid token",
+  "User not found",
+  "Session revoked",
+  "Token invalidated by password change",
+]);
+// Endpoints that authenticate with credentials rather than the access token.
+const CREDENTIAL_ENDPOINTS = ["/auth/login", "/auth/register", "/auth/refresh-token", "/auth/mfa/challenge"];
 
 api.interceptors.response.use(
   (response) => response,
@@ -41,32 +92,13 @@ api.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/")
+      TOKEN_ERRORS.has(error.response?.data?.error) &&
+      !CREDENTIAL_ENDPOINTS.some((path) => originalRequest.url?.includes(path))
     ) {
       originalRequest._retry = true;
-
-      try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        if (!refreshToken) throw new Error("No refresh token");
-
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
-          refreshToken,
-        });
-
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("refreshToken", newRefreshToken);
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-          window.location.href = "/login";
-        }
-        return Promise.reject(refreshError);
-      }
+      const accessToken = await refreshAccessToken();
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      return api(originalRequest);
     }
 
     return Promise.reject(error);

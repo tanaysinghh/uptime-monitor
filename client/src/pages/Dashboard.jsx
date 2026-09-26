@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
-import useSocket from "../hooks/useSocket";
+import useRealtime from "../hooks/useRealtime";
+import { liveLabel } from "../realtime/config";
 import { PageHeader } from "../components/ui/Section";
 import { Button } from "../components/ui/button";
 import { Loading, Empty } from "../components/ui/States";
@@ -115,8 +116,21 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [fetchStats]);
 
+  // Every check result pulses the LIVE dot; stats refresh at most every 5s during a burst.
+  const lastStatsRefresh = useRef(0);
+  const refreshStatsSoon = useCallback(() => {
+    const now = Date.now();
+    if (now - lastStatsRefresh.current < 5000) return;
+    lastStatsRefresh.current = now;
+    fetchStats();
+  }, [fetchStats]);
+
   const socketHandlers = useMemo(
     () => ({
+      "check:result": () => {
+        setPulseTrigger((n) => n + 1);
+        refreshStatsSoon();
+      },
       "monitor:update": (data) => {
         toast(data.name + " · " + data.previousStatus + " → " + data.currentStatus);
         setPulseTrigger((n) => n + 1);
@@ -129,10 +143,13 @@ const Dashboard = () => {
         fetchStats();
       },
     }),
-    [fetchStats]
+    [fetchStats, refreshStatsSoon]
   );
 
-  useSocket("join:dashboard", user?.organizationId, socketHandlers);
+  const realtimeStatus = useRealtime(
+    user?.organizationId ? { type: "org", id: user.organizationId } : null,
+    socketHandlers
+  );
 
   const statusPageUrl =
     user?.organization?.slug
@@ -160,7 +177,7 @@ const Dashboard = () => {
         description="Live signal across every monitor in your workspace."
         actions={
           <div className="flex items-center gap-4">
-            <LivePulse trigger={pulseTrigger} />
+            <LivePulse trigger={pulseTrigger} label={liveLabel(realtimeStatus)} />
             {statusPageUrl && (
               <Button variant="ghost" size="sm" asChild>
                 <a href={statusPageUrl} target="_blank" rel="noopener noreferrer">

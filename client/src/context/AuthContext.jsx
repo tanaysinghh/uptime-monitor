@@ -8,28 +8,33 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Only a stored token needs checking against the server before routes render.
+  const [loading, setLoading] = useState(() => !!localStorage.getItem("accessToken"));
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
-  }, []);
+    // An expired access token is refreshed by the api interceptor. Only a definitive 401
+    // (the refresh failed too) ends the session; a network error or 5xx (e.g. the server
+    // waking from sleep) is retried rather than logging the user out.
+    const fetchUser = async (attempt = 0) => {
+      try {
+        const response = await api.get("/auth/me");
+        setUser(response.data.user);
+        setLoading(false);
+      } catch (error) {
+        if (error.response?.status === 401) {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          setLoading(false);
+        } else if (attempt < 3) {
+          setTimeout(() => fetchUser(attempt + 1), 2000 * 2 ** attempt);
+        } else {
+          setLoading(false);
+        }
+      }
+    };
 
-  const fetchUser = async () => {
-    try {
-      const response = await api.get("/auth/me");
-      setUser(response.data.user);
-    } catch (error) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (localStorage.getItem("accessToken")) fetchUser();
+  }, []);
 
   const login = async (email, password) => {
     const response = await api.post("/auth/login", { email, password });

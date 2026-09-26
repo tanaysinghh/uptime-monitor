@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import api from "../api/axios";
-import useSocket from "../hooks/useSocket";
+import useRealtime from "../hooks/useRealtime";
+import { liveLabel } from "../realtime/config";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { UptimeStrip } from "../components/ui/UptimeStrip";
@@ -55,14 +56,30 @@ const MonitorDetail = () => {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  useSocket("join:dashboard", user?.organizationId, {
-    "monitor:update": (data) => {
-      if (String(data.id) === String(id) || data.monitorId === id) {
+  // This monitor's check results pulse the LIVE dot and refresh the chart (at most every 5s).
+  const lastRefresh = useRef(0);
+  const refreshSoon = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRefresh.current < 5000) return;
+    lastRefresh.current = now;
+    fetchData();
+  }, [fetchData]);
+
+  const realtimeStatus = useRealtime(
+    user?.organizationId ? { type: "org", id: user.organizationId } : null,
+    {
+      "check:result": (data) => {
+        if (String(data.monitorId) !== String(id)) return;
+        setPulseTrigger((n) => n + 1);
+        refreshSoon();
+      },
+      "monitor:update": (data) => {
+        if (String(data.monitorId) !== String(id)) return;
         setPulseTrigger((n) => n + 1);
         fetchData();
-      }
-    },
-  });
+      },
+    }
+  );
 
   if (loading) return <Loading label="Loading monitor" />;
   if (!monitor) return null;
@@ -114,7 +131,7 @@ const MonitorDetail = () => {
           </a>
         </div>
         <div className="flex items-center gap-6">
-          <LivePulse trigger={pulseTrigger} />
+          <LivePulse trigger={pulseTrigger} label={liveLabel(realtimeStatus)} />
           <div className="text-right">
             <StatusLabel status={monitor.status} />
             <div className="text-[10px] font-num uppercase tracking-wider text-muted mt-1">

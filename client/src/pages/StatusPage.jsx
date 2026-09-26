@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/axios";
+import useRealtime from "../hooks/useRealtime";
+import { liveLabel } from "../realtime/config";
 import toast from "react-hot-toast";
 import { motion, useReducedMotion } from "framer-motion";
 import { UptimeStrip } from "../components/ui/UptimeStrip";
@@ -30,22 +32,28 @@ const StatusPage = () => {
   const [pulseTrigger, setPulseTrigger] = useState(0);
   const reduce = useReducedMotion();
 
+  const fetchStatus = useCallback(async () => {
+    try {
+      const response = await api.get("/public/status/" + slug);
+      setData(response.data);
+      setPulseTrigger((n) => n + 1);
+    } catch (err) {
+      setError(err.response?.status === 404 ? "Status page not found" : "Failed to load status");
+    } finally {
+      setLoading(false);
+    }
+  }, [slug]);
+
   useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const response = await api.get("/public/status/" + slug);
-        setData(response.data);
-        setPulseTrigger((n) => n + 1);
-      } catch (err) {
-        setError(err.response?.status === 404 ? "Status page not found" : "Failed to load status");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStatus();
     const interval = setInterval(fetchStatus, 60000);
     return () => clearInterval(interval);
-  }, [slug]);
+  }, [fetchStatus]);
+
+  // Incidents opening or resolving refresh the page immediately.
+  const realtimeStatus = useRealtime(slug ? { type: "status", id: slug } : null, {
+    "incident:update": () => fetchStatus(),
+  });
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
@@ -95,7 +103,7 @@ const StatusPage = () => {
             )}
             <span className="font-display text-lg leading-none">{data.organization.name}</span>
           </div>
-          <LivePulse trigger={pulseTrigger} label="LIVE" />
+          <LivePulse trigger={pulseTrigger} label={liveLabel(realtimeStatus)} />
         </div>
       </header>
 
