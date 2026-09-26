@@ -57,7 +57,8 @@ export const connectStomp = ({ room, onEvent, onStatus }) => {
   };
 
   client.onStompError = (frame) => {
-    const reason = frame.headers.message || "";
+    // An ERROR answering CONNECT reaches us still STOMP-escaped (":" as "\c").
+    const reason = (frame.headers.message || "").replace(/\\c/g, ":");
     if (reason.startsWith("Forbidden")) {
       // Retrying cannot help (wrong organization, bad destination).
       stopped = true;
