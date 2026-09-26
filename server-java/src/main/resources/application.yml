@@ -89,6 +89,5 @@ app:
     enabled: true
   scheduler:
     enabled: true
-  socket:
+  realtime:
     enabled: true
-    port: ${SOCKET_PORT:5001}

@@ -1,11 +1,9 @@
 package com.uptimemonitor.config;
 
-import com.uptimemonitor.repository.SessionRepository;
-import com.uptimemonitor.repository.UserRepository;
+import com.uptimemonitor.security.AccessTokenAuthenticator;
 import com.uptimemonitor.security.BcryptJsPasswordEncoder;
 import com.uptimemonitor.security.JsonAuthEntryPoint;
 import com.uptimemonitor.security.JwtAuthFilter;
-import com.uptimemonitor.security.JwtService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -52,8 +50,8 @@ public class SecurityConfig {
     };
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, UserRepository users,
-                                            SessionRepository sessions, JsonAuthEntryPoint entryPoint)
+    SecurityFilterChain securityFilterChain(HttpSecurity http, AccessTokenAuthenticator authenticator,
+                                            JsonAuthEntryPoint entryPoint)
             throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
@@ -71,7 +69,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/heartbeat/monitors").authenticated()
                         .requestMatchers(AUTHENTICATED).authenticated()
                         .anyRequest().permitAll())
-                .addFilterBefore(new JwtAuthFilter(jwtService, users, sessions),
+                .addFilterBefore(new JwtAuthFilter(authenticator),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

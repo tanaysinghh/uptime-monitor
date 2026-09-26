@@ -12,7 +12,7 @@ public record AppProperties(
         String mfaEncryptionKey,
         @DefaultValue RateLimit rateLimit,
         @DefaultValue Scheduler scheduler,
-        @DefaultValue Socket socket) {
+        @DefaultValue Realtime realtime) {
 
     public boolean isProd() {
         return "production".equals(env);
@@ -33,6 +33,6 @@ public record AppProperties(
     public record Scheduler(@DefaultValue("true") boolean enabled) {
     }
 
-    public record Socket(@DefaultValue("true") boolean enabled, @DefaultValue("5001") int port) {
+    public record Realtime(@DefaultValue("true") boolean enabled) {
     }
 }

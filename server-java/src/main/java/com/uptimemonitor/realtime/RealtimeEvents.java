@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * Push notifications to connected dashboards / status pages (services/socketService.js).
- * Rooms: "org:{organizationId}" for dashboards, "status:{slug}" for public status pages.
+ * Audiences: an organization's dashboards and a public status page (by slug).
  */
 public interface RealtimeEvents {
 

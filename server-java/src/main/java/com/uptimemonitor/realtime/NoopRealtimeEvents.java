@@ -6,9 +6,9 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.UUID;
 
-/** Used when the Socket.IO server is disabled (app.socket.enabled=false); events are dropped. */
+/** Used when real-time push is disabled (app.realtime.enabled=false); events are dropped. */
 @Component
-@ConditionalOnProperty(prefix = "app.socket", name = "enabled", havingValue = "false")
+@ConditionalOnProperty(prefix = "app.realtime", name = "enabled", havingValue = "false")
 public class NoopRealtimeEvents implements RealtimeEvents {
 
     @Override

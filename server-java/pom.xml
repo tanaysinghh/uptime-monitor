@@ -23,8 +23,6 @@
         <bucket4j.version>8.20.0</bucket4j.version>
         <zxcvbn.version>1.9.0</zxcvbn.version>
         <totp.version>1.7.1</totp.version>
-        <netty-socketio.version>2.0.14</netty-socketio.version>
-        <socketio-client.version>2.1.2</socketio-client.version>
     </properties>
 
     <dependencies>
@@ -103,11 +101,10 @@
             <version>${totp.version}</version>
         </dependency>
 
-        <!-- Socket.IO v4 protocol server, so the existing socket.io-client keeps working -->
+        <!-- Real-time push: STOMP over WebSocket on the HTTP port -->
         <dependency>
-            <groupId>com.corundumstudio.socketio</groupId>
-            <artifactId>netty-socketio</artifactId>
-            <version>${netty-socketio.version}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
         <!-- Test -->
@@ -139,12 +136,6 @@
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.socket</groupId>
-            <artifactId>socket.io-client</artifactId>
-            <version>${socketio-client.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

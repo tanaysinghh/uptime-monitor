@@ -12,8 +12,6 @@ app:
     enabled: false
   scheduler:
     enabled: false
-  socket:
-    enabled: false
 
 logging:
   level:

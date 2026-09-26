@@ -13,7 +13,7 @@ class GlobalExceptionHandlerTest {
     private static GlobalExceptionHandler handler(String env) {
         return new GlobalExceptionHandler(new AppProperties(env, "http://localhost:5173", false, null, null,
                 new AppProperties.RateLimit(false), new AppProperties.Scheduler(false),
-                new AppProperties.Socket(false, 0)));
+                new AppProperties.Realtime(false)));
     }
 
     @Test

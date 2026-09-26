@@ -64,6 +64,6 @@ class NodeCompatibilityTest {
         return new AppProperties("test", "http://localhost:5173", false,
                 new AppProperties.Jwt(JWT_SECRET, "test_refresh_secret_at_least_32_chars_diff", "15m", "7d"),
                 "0".repeat(64), new AppProperties.RateLimit(false), new AppProperties.Scheduler(false),
-                new AppProperties.Socket(false, 5001));
+                new AppProperties.Realtime(false));
     }
 }
