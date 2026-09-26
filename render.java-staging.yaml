@@ -1,0 +1,97 @@
+# Render Blueprint: Spring Boot backend STAGING, running alongside production.
+# https://render.com/docs/blueprint-spec
+#
+# A separate Blueprint instance (Blueprint path: render.java-staging.yaml, branch
+# staging/java). The production Blueprint (render.yaml) and its services are untouched.
+#
+#   uptime-monitor-server-java   Spring Boot API + STOMP real-time (/ws), Docker
+#   uptime-monitor-client-java   the same React client, built for the Java server
+#
+# DATABASE: the Supabase project "uptime-monitor-java-staging" (ref aiopnkhxtvrqgfvfordi),
+# a restored copy of production, so the Java scheduler checks the same monitors without
+# touching production data. Same connection shape as production:
+#   - app pool: transaction pooler (6543), prepareThreshold=0
+#   - Flyway: session pooler (5432), which keeps its advisory lock on one connection
+#   - TLS verify-full against the bundled Supabase root CA
+#
+# SECRETS: JWT secrets and the MFA key are read from the production Node service, so
+# tokens and MFA secrets are interchangeable between the two backends (needed for a
+# cutover without logging everyone out). DB_PASSWORD likewise: the staging clone uses
+# the same database password as production.
+
+services:
+  - type: web
+    name: uptime-monitor-server-java
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: staging/java
+    dockerfilePath: ./server-java/Dockerfile
+    dockerContext: ./server-java
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: uptime-monitor-server
+          envVarKey: JWT_SECRET
+      - key: JWT_REFRESH_SECRET
+        fromService:
+          type: web
+          name: uptime-monitor-server
+          envVarKey: JWT_REFRESH_SECRET
+      - key: MFA_ENCRYPTION_KEY
+        fromService:
+          type: web
+          name: uptime-monitor-server
+          envVarKey: MFA_ENCRYPTION_KEY
+      - key: DB_PASSWORD
+        fromService:
+          type: web
+          name: uptime-monitor-server
+          envVarKey: DB_PASSWORD
+      - key: ALLOW_PRIVATE_URLS
+        value: "false"
+      - key: DB_HOST
+        value: aws-0-us-west-2.pooler.supabase.com
+      - key: DB_PORT
+        value: "6543"
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        value: postgres.aiopnkhxtvrqgfvfordi
+      - key: DB_SSL
+        value: "true"
+      - key: DB_SSL_CA_FILE
+        value: certs/supabase-root-2021.crt
+      - key: DB_PREPARE_THRESHOLD
+        value: "0"
+      - key: FLYWAY_DB_PORT
+        value: "5432"
+      - key: CLIENT_URL
+        value: https://uptime-monitor-client-java.onrender.com
+
+  - type: web
+    name: uptime-monitor-client-java
+    runtime: static
+    branch: staging/java
+    buildCommand: cd client && npm ci && npm run build
+    staticPublishPath: ./client/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://uptime-monitor-server-java.onrender.com/api
+      - key: VITE_REALTIME_TRANSPORT
+        value: stomp
